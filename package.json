@@ -1,0 +1,61 @@
+{
+  "name": "@needle-tools/gltf-progressive",
+  "version": "1.0.0-alpha.5",
+  "description": "three.js support for loading glTF or GLB files that contain progressive loading data",
+  "homepage": "https://needle.tools",
+  "author": {
+    "name": "Needle",
+    "email": "hi@needle.tools",
+    "url": "https://needle.tools/"
+  },
+  "readme": "README.md",
+  "keywords": [
+    "three.js",
+    "gltf",
+    "glb",
+    "progressive",
+    "loading",
+    "needle",
+    "engine",
+    "webgl",
+    "optimization"
+  ],
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./gltf-progressive.js"
+    }
+  },
+  "scripts": {
+    "publish": "node tools/build.mjs",
+    "build": "node tools/build.mjs --dry-run",
+    "build:dist": "vite build",
+    "build:lib": "tsc --rootDir ./src --outDir ./dist/lib --noEmit false --declaration --incremental false",
+    "test:tsc": "tsc --noEmit",
+    "lint": "eslint --ext .ts src",
+    "lint:fix": "eslint --ext .ts src --fix"
+  },
+  "peerDependencies": {
+    "three": ">= 0.160.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.162.0",
+    "three": ">= 0.160.0",
+    "vite": "<= 4.3.9",
+    "@stylistic/eslint-plugin-ts": "^1.5.4",
+    "@typescript-eslint/eslint-plugin": "^6.2.0",
+    "@typescript-eslint/parser": "^6.2.0",
+    "eslint": "^8.56.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-no-secrets": "^0.8.9",
+    "eslint-plugin-no-unsanitized": "^4.0.2",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-xss": "^0.1.12"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}

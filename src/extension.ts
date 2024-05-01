@@ -1,0 +1,783 @@
+import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Texture, TextureLoader } from "three";
+import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
+
+import { addDracoAndKTX2Loaders } from "./loaders.js";
+import { getParam, resolveUrl } from "./utils.js";
+
+
+
+// All of this has to be removed
+// import { getRaycastMesh, setRaycastMesh } from "../../engine_physics.js";
+// import { PromiseAllWithErrors, resolveUrl } from "../../engine_utils.js";
+import { plugins } from "./plugins/plugin.js";
+
+
+
+export const EXTENSION_NAME = "NEEDLE_progressive";
+
+const debug = getParam("debugprogressive");
+const $progressiveTextureExtension = Symbol("needle-progressive-texture");
+
+/** Removes the readonly attribute from all properties of an object */
+type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
+
+
+const debug_toggle_maps: Map<object, { keys: string[], sourceId: string }> = new Map();
+const debug_materials: Set<Material> = new Set();
+if (debug) {
+    let currentDebugLodLevel = -1;
+    let maxLevel = 2;
+    let wireframe = false;
+    function debugToggleProgressive() {
+        currentDebugLodLevel += 1;
+        console.log("Toggle LOD level", currentDebugLodLevel, debug_toggle_maps);
+        debug_toggle_maps.forEach((arr, obj) => {
+            for (const key of arr.keys) {
+                const cur = obj[key];
+                if ((cur as BufferGeometry).isBufferGeometry === true) {
+                    const info = NEEDLE_progressive.getMeshLODInformation(cur);
+                    const level = !info ? 0 : Math.min(currentDebugLodLevel, info.lods.length);
+                    obj["DEBUG:LOD"] = currentDebugLodLevel;
+                    NEEDLE_progressive.assignMeshLOD(obj as Mesh, level);
+                    if (info) maxLevel = Math.max(maxLevel, info.lods.length - 1);
+                }
+                else if ((obj as Material).isMaterial === true) {
+                    obj["DEBUG:LOD"] = currentDebugLodLevel;
+                    NEEDLE_progressive.assignTextureLOD(obj as Material, currentDebugLodLevel);
+                    break;
+                }
+            }
+        });
+        if (currentDebugLodLevel >= maxLevel) {
+            currentDebugLodLevel = -1;
+        }
+    }
+    window.addEventListener("keyup", evt => {
+        if (evt.key === "p") debugToggleProgressive();
+        if (evt.key === "w") {
+            wireframe = !wireframe;
+            if (debug_materials) {
+                debug_materials.forEach(mat => {
+                    // we don't want to change the skybox material
+                    if(mat.name == "BackgroundCubeMaterial") return;
+                    if ("wireframe" in mat)
+                        mat.wireframe = wireframe;
+                });
+            }
+        }
+    });
+}
+function registerDebug(obj: object, key: string, sourceId: string,) {
+    if (!debug) return;
+    if (!debug_toggle_maps.has(obj)) {
+        debug_toggle_maps.set(obj, { keys: [], sourceId });
+    }
+    const existing = debug_toggle_maps.get(obj);
+    if (existing?.keys?.includes(key) == false) {
+        existing.keys.push(key);
+    }
+}
+
+declare type NEEDLE_progressive_model_LOD = {
+    path: string,
+    hash?: string
+}
+
+/** This is the data structure we have in the NEEDLE_progressive extension */
+declare type NEEDLE_progressive_model = {
+    guid: string,
+    lods: Array<NEEDLE_progressive_model_LOD>
+}
+
+export declare type NEEDLE_progressive_texture_model = NEEDLE_progressive_model & {
+
+}
+export declare type NEEDLE_progressive_mesh_model = NEEDLE_progressive_model & {
+    density: number;
+    lods: Array<NEEDLE_progressive_model_LOD & {
+        density: number,
+        indexCount: number;
+        vertexCount: number;
+    }>
+}
+
+/** 
+ * This is the result of a progressive texture loading event for a material's texture slot in {@link NEEDLE_progressive.assignTextureLOD}
+ * @internal
+ */
+export declare type ProgressiveMaterialTextureLoadingResult = {
+    /** the material the progressive texture was loaded for */
+    material: Material,
+    /** the slot in the material where the texture was loaded */
+    slot: string,
+    /** the texture that was loaded (if any) */
+    texture: Texture | null;
+    /** the level of detail that was loaded */
+    level: number;
+}
+
+/**
+ * The NEEDLE_progressive extension for the GLTFLoader is responsible for loading progressive LODs for meshes and textures.  
+ * This extension can be used to load different resolutions of a mesh or texture at runtime (e.g. for LODs or progressive textures).  
+ * @example
+ * ```javascript
+ * const loader = new GLTFLoader();
+ * loader.register(new NEEDLE_progressive());
+ * loader.load("model.glb", (gltf) => {
+ *    const mesh = gltf.scene.children[0] as Mesh;
+ *   NEEDLE_progressive.assignMeshLOD(context, sourceId, mesh, 1).then(mesh => {
+ *     console.log("Mesh with LOD level 1 loaded", mesh);
+ *  });
+ * });
+ * ```
+ */
+export class NEEDLE_progressive implements GLTFLoaderPlugin {
+
+    /** The name of the extension */
+    get name(): string {
+        return EXTENSION_NAME;
+    }
+
+    static getMeshLODInformation(geo: BufferGeometry) {
+        const info = this.getAssignedLODInformation(geo);
+        if (info?.key) {
+            return this.lodInfos.get(info.key) as NEEDLE_progressive_mesh_model;
+        }
+        return null;
+    }
+
+    /** Check if a LOD level is available for a mesh or a texture
+     * @param obj the mesh or texture to check
+     * @param level the level of detail to check for (0 is the highest resolution). If undefined, the function checks if any LOD level is available
+     * @returns true if the LOD level is available (or if any LOD level is available if level is undefined)
+     */
+    static hasLODLevelAvailable(obj: Mesh | BufferGeometry | Texture | Material, level?: number): boolean {
+
+        if ((obj as Material).isMaterial === true) {
+            for (const slot of Object.keys(obj)) {
+                const val = obj[slot];
+                if ((val as Texture).isTexture) {
+                    if (this.hasLODLevelAvailable(val, level)) return true;
+                }
+            }
+            return false;
+        }
+        else if ((obj as unknown as Group).isGroup === true) {
+            for (const child of (obj as Object3D).children) {
+                if ((child as Mesh).isMesh === true) {
+                    if (this.hasLODLevelAvailable(child as Mesh, level)) return true;
+                }
+            }
+        }
+
+
+        let lodObject: ObjectThatMightHaveLODs | undefined;
+        let lodInformation: NEEDLE_progressive_model | undefined;
+
+        if ((obj as Mesh).isMesh) {
+            lodObject = (obj as Mesh).geometry as BufferGeometry;
+        }
+        else if ((obj as BufferGeometry).isBufferGeometry) {
+            lodObject = obj;
+        }
+        else if ((obj as Texture).isTexture) {
+            lodObject = obj;
+        }
+        if (lodObject) {
+            if (lodObject?.userData?.LODS) {
+                const lods = lodObject.userData.LODS;
+                lodInformation = this.lodInfos.get(lods.key);
+                if (level === undefined) return lodInformation != undefined;
+                if (lodInformation) {
+                    if (Array.isArray(lodInformation.lods)) {
+                        return level < lodInformation.lods.length;
+                    }
+                    return level === 0;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /** Load a different resolution of a mesh (if available)
+     * @param context the context
+     * @param source the sourceid of the file from which the mesh is loaded (this is usually the component's sourceId)
+     * @param mesh the mesh to load the LOD for
+     * @param level the level of detail to load (0 is the highest resolution)
+     * @returns a promise that resolves to the mesh with the requested LOD level
+     * @example
+     * ```javascript
+     * const mesh = this.gameObject as Mesh;
+     * NEEDLE_progressive.assignMeshLOD(context, sourceId, mesh, 1).then(mesh => {
+     *    console.log("Mesh with LOD level 1 loaded", mesh);
+     * });
+     * ```
+     */
+    static assignMeshLOD(mesh: Mesh, level: number): Promise<BufferGeometry | null> {
+
+        if (!mesh) return Promise.resolve(null);
+
+        if (mesh instanceof Mesh || (mesh as any).isMesh === true) {
+
+            const currentGeometry = mesh.geometry;
+            const lodinfo = this.getAssignedLODInformation(currentGeometry);
+            if (!lodinfo) {
+                return Promise.resolve(null);
+            }
+
+            for (const plugin of plugins) {
+                plugin.onBeforeGetLODMesh?.(mesh, level);
+            }
+
+            // const info = this.onProgressiveLoadStart(context, source, mesh, null);
+            mesh["LOD:requested level"] = level;
+            return NEEDLE_progressive.getOrLoadLOD<BufferGeometry>(currentGeometry, level).then(geo => {
+                if (mesh["LOD:requested level"] === level) {
+                    delete mesh["LOD:requested level"];
+                    if (Array.isArray(geo)) {
+                        const index = lodinfo.index || 0;
+                        geo = geo[index];
+                    }
+                    if (geo && currentGeometry != geo) {
+                        // if (debug == "verbose") console.log("Progressive Mesh " + mesh.name + " loaded", currentGeometry, "→", geo, "\n", mesh)
+                        if (geo instanceof BufferGeometry) {
+                            mesh.geometry = geo;
+                            if (debug) registerDebug(mesh, "geometry", lodinfo.url);
+                        }
+                    }
+                }
+                // this.onProgressiveLoadEnd(info);
+                return geo;
+
+            }).catch(err => {
+                // this.onProgressiveLoadEnd(info);
+                console.error("Error loading mesh LOD", mesh, err);
+                return null;
+            });
+        }
+        else if (debug) {
+            console.error("Invalid call to assignMeshLOD: Request mesh LOD but the object is not a mesh", mesh);
+        }
+
+        return Promise.resolve(null);
+    }
+
+    /** Load a different resolution of a texture (if available)  
+     * @param context the context
+     * @param source the sourceid of the file from which the texture is loaded (this is usually the component's sourceId)
+     * @param materialOrTexture the material or texture to load the LOD for (if passing in a material all textures in the material will be loaded)
+     * @param level the level of detail to load (0 is the highest resolution) - currently only 0 is supported
+     * @returns a promise that resolves to the material or texture with the requested LOD level
+     */
+    static assignTextureLOD(materialOrTexture: Material | Texture, level: number = 0)
+        : Promise<Array<ProgressiveMaterialTextureLoadingResult> | Texture | null> {
+
+        if (!materialOrTexture) return Promise.resolve(null);
+
+        if (materialOrTexture instanceof Material || (materialOrTexture as unknown as Material).isMaterial === true) {
+            const material = materialOrTexture as Material;
+            const promises: Array<Promise<Texture | null>> = [];
+            const slots = new Array<string>();
+
+            if (debug) debug_materials.add(material);
+
+            if (material instanceof RawShaderMaterial) {
+                // iterate uniforms of custom shaders
+                for (const slot of Object.keys(material.uniforms)) {
+                    const val = material.uniforms[slot].value as Texture;
+                    if (val?.isTexture === true) {
+                        const task = this.assignTextureLODForSlot(val, level, material, slot);
+                        promises.push(task);
+                        slots.push(slot);
+                    }
+                }
+            }
+            else {
+                for (const slot of Object.keys(material)) {
+                    const val = material[slot] as Texture;
+                    if (val?.isTexture === true) {
+                        const task = this.assignTextureLODForSlot(val, level, material, slot);
+                        promises.push(task);
+                        slots.push(slot);
+                    }
+                }
+            }
+            return Promise.all(promises).then(res => {
+                const textures = new Array<ProgressiveMaterialTextureLoadingResult>();
+                for (let i = 0; i < res.length; i++) {
+                    const tex = res[i] as Texture;
+                    const slot = slots[i];
+                    if (tex && tex.isTexture === true) {
+                        textures.push({ material, slot, texture: tex, level });
+                    }
+                    else {
+                        textures.push({ material, slot, texture: null, level });
+                    }
+                }
+                return textures;
+            });
+        }
+
+        if (materialOrTexture instanceof Texture || (materialOrTexture as Texture).isTexture === true) {
+            const texture = materialOrTexture;
+            return this.assignTextureLODForSlot(texture, level, null, null);
+        }
+
+        return Promise.resolve(null);
+    }
+
+    private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null): Promise<Texture | null> {
+        if (current?.isTexture !== true) return Promise.resolve(null);
+
+        // if (debug) console.log("-----------\n", "FIND", material?.name, slot, current?.name, current?.userData, current, material);
+
+        // const info = this.onProgressiveLoadStart(context, source, material, slot);
+        return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
+
+            // this can currently not happen
+            if (Array.isArray(tex)) return null;
+
+            if (tex?.isTexture === true) {
+                if (tex != current) {
+                    // if (debug) console.warn("Assign LOD", material?.name, slot, tex.name, tex["guid"], material, "Prev:", current, "Now:", tex, "\n--------------");
+
+                    // tex.needsUpdate = true;
+
+                    if (material && slot) {
+                        material[slot] = tex;
+                        // material.needsUpdate = true;
+                    }
+
+                    if (debug && slot && material) {
+                        const lodinfo = this.getAssignedLODInformation(current);
+                        if (lodinfo) registerDebug(material, slot, lodinfo.url);
+                    }
+
+                    // check if the old texture is still used by other objects
+                    // if not we dispose it...
+                    // this could also be handled elsewhere and not be done immediately
+                    // const users = getResourceUserCount(current);
+                    // if (!users) {
+                    //     if (debug) console.log("Progressive: Dispose texture", current.name, current.source.data, current.uuid);
+                    //     current?.dispose();
+                    // }
+                }
+
+                // this.onProgressiveLoadEnd(info);
+                return tex;
+            }
+            else if (debug == "verbose") {
+                console.warn("No LOD found for", current, level);
+            }
+
+            // this.onProgressiveLoadEnd(info);
+            return null;
+
+        }).catch(err => {
+            // this.onProgressiveLoadEnd(info);
+            console.error("Error loading LOD", current, err);
+            return null;
+        });
+    }
+
+
+
+
+    private readonly parser: GLTFParser;
+    private readonly url: string;
+
+    constructor(parser: GLTFParser, url: string) {
+        if (debug) console.log("Progressive extension registered for", url);
+        this.parser = parser;
+        this.url = url;
+    }
+
+    afterRoot(gltf: GLTF): null {
+        if (debug)
+            console.log("AFTER", this.url, gltf);
+
+        this.parser.json.textures?.forEach((textureInfo, index) => {
+            if (textureInfo?.extensions) {
+                const ext: NEEDLE_progressive_texture_model = textureInfo?.extensions[EXTENSION_NAME];
+                if (ext) {
+                    let found = false;
+                    // TODO: why are sometimes textures not in the associations array when using r3f glTF loader...
+                    for (const key of this.parser.associations.keys()) {
+                        if ((key as Texture).isTexture === true) {
+                            const val = this.parser.associations.get(key) as { textures: number };
+                            if (val.textures === index) {
+                                found = true;
+                                NEEDLE_progressive.registerTexture(this.url, key as Texture, index, ext);
+                            }
+                        }
+                    }
+                    if (!found) {
+                        // see TODO above, fallback for when textures are not in the associations array
+                        this.parser.getDependency("texture", index).then(tex => {
+                            if (tex) {
+                                NEEDLE_progressive.registerTexture(this.url, tex as Texture, index, ext);
+                            }
+                        });
+                    }
+                }
+            }
+        });
+        this.parser.json.meshes?.forEach((meshInfo, index: number) => {
+            if (meshInfo?.extensions) {
+                const ext = meshInfo?.extensions[EXTENSION_NAME] as NEEDLE_progressive_mesh_model;
+                if (ext && ext.lods) {
+                    for (const entry of this.parser.associations.keys()) {
+                        if ((entry as Mesh).isMesh) {
+                            const val = this.parser.associations.get(entry) as { meshes: number, primitives: number };
+                            if (val.meshes === index) {
+                                NEEDLE_progressive.registerMesh(this.url, ext.guid, entry as Mesh, ext.lods.length, val.primitives, ext);
+                            }
+                        }
+                    }
+
+                }
+            }
+        });
+
+        return null;
+    }
+
+    /**
+     * Register a texture with LOD information
+     */
+    static registerTexture = (url: string, tex: Texture, index: number, ext: NEEDLE_progressive_texture_model) => {
+        if (debug) console.log("> Progressive: register texture", index, tex.name, tex.uuid, tex, ext);
+        // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
+        // see https://github.com/needle-tools/needle-engine-support/issues/133
+        if (tex.source)
+            tex.source[$progressiveTextureExtension] = ext;
+        const LODKEY = ext.guid;
+        NEEDLE_progressive.assignLODInformation(url, tex, LODKEY, 0, 0, undefined);
+        NEEDLE_progressive.lodInfos.set(LODKEY, ext);
+        NEEDLE_progressive.lowresCache.set(LODKEY, tex);
+    };
+
+    /**
+     * Register a mesh with LOD information
+     */
+    static registerMesh = (url: string, key: string, mesh: Mesh, level: number, index: number | undefined, ext: NEEDLE_progressive_mesh_model) => {
+        if (debug) console.log("> Progressive: register mesh", index, mesh.name, ext, mesh.uuid, mesh);
+
+        const geometry = mesh.geometry as BufferGeometry;
+        if (!geometry.userData) geometry.userData = {};
+        NEEDLE_progressive.assignLODInformation(url, geometry, key, level, index, ext.density);
+
+        NEEDLE_progressive.lodInfos.set(key, ext);
+
+        let existing = NEEDLE_progressive.lowresCache.get(key) as unknown as BufferGeometry[] | undefined;
+        if (existing) existing.push(mesh.geometry as BufferGeometry);
+        else existing = [mesh.geometry as BufferGeometry];
+        NEEDLE_progressive.lowresCache.set(key, existing);
+
+        for (const plugin of plugins) {
+            plugin.onRegisteredNewMesh?.(mesh, ext);
+        }
+    };
+
+
+    /** A map of key = asset uuid and value = LOD information */
+    private static readonly lodInfos = new Map<string, NEEDLE_progressive_model>();
+    /** cache of already loaded mesh lods */
+    private static readonly previouslyLoaded: Map<string, Promise<null | Texture | BufferGeometry | BufferGeometry[]>> = new Map();
+    /** this contains the geometry/textures that were originally loaded */
+    private static readonly lowresCache: Map<string, Texture | BufferGeometry[]> = new Map();
+
+    private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number): Promise<T | null> {
+
+        const debugverbose = debug == "verbose";
+
+        /** this key is used to lookup the LOD information */
+        const LOD: LODInformation | undefined = current.userData.LODS;
+
+        if (!LOD) {
+            return null;
+        }
+
+        const LODKEY = LOD?.key;
+
+        let progressiveInfo: NEEDLE_progressive_model | undefined;
+
+        // See https://github.com/needle-tools/needle-engine-support/issues/133
+        if ((current as Texture).isTexture === true) {
+            const tex = current as Texture;
+            if (tex.source && tex.source[$progressiveTextureExtension])
+                progressiveInfo = tex.source[$progressiveTextureExtension];
+        }
+
+
+        if (!progressiveInfo) progressiveInfo = NEEDLE_progressive.lodInfos.get(LODKEY);
+
+        if (progressiveInfo) {
+
+            if (level > 0) {
+                let useLowRes = false;
+                const hasMultipleLevels = Array.isArray(progressiveInfo.lods);
+                if (hasMultipleLevels && level >= progressiveInfo.lods.length) {
+                    useLowRes = true;
+                }
+                else if (!hasMultipleLevels) {
+                    useLowRes = true;
+                }
+                if (useLowRes) {
+                    const lowres = this.lowresCache.get(LODKEY) as T;
+                    return lowres;
+                }
+            }
+
+            /** the unresolved LOD url */
+            const unresolved_lod_url = Array.isArray(progressiveInfo.lods) ? progressiveInfo.lods[level].path : progressiveInfo.lods;
+
+            // check if we have a uri
+            if (!unresolved_lod_url) {
+                if (debug && !progressiveInfo["missing:uri"]) {
+                    progressiveInfo["missing:uri"] = true;
+                    console.warn("Missing uri for progressive asset for LOD " + level, progressiveInfo);
+                }
+                return null;
+            }
+
+            /** the resolved LOD url */
+            const lod_url = resolveUrl(LOD.url, unresolved_lod_url);
+
+            // check if the requested file needs to be loaded via a GLTFLoader
+            if (lod_url.endsWith(".glb") || lod_url.endsWith(".gltf")) {
+                if (!progressiveInfo.guid) {
+                    console.warn("missing pointer for glb/gltf texture", progressiveInfo);
+                    return null;
+                }
+                // check if the requested file has already been loaded
+                const KEY = lod_url + "_" + progressiveInfo.guid;
+
+                // check if the requested file is currently being loaded
+                const existing = this.previouslyLoaded.get(KEY);
+                if (existing !== undefined) {
+                    if (debugverbose) console.log(`LOD ${level} was already loading/loaded: ${KEY}`);
+                    let res = await existing.catch(err => {
+                        console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
+                        return null;
+                    });
+                    let resouceIsDisposed = false;
+                    if (res == null) {
+                        // if the resource is null the last loading result didnt succeed (maybe because the url doesnt exist)
+                        // in which case we don't attempt to load it again
+                    }
+                    else if (res instanceof Texture && current instanceof Texture) {
+                        // check if the texture has been disposed or not
+                        if (res.image?.data || res.source?.data) {
+                            res = this.copySettings(current, res);
+                        }
+                        // if it has been disposed we need to load it again
+                        else {
+                            resouceIsDisposed = true;
+                            this.previouslyLoaded.delete(KEY);
+                        }
+                    }
+                    else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
+                        if (res.attributes.position?.array) {
+                            // the geometry is OK
+                        }
+                        else {
+                            resouceIsDisposed = true;
+                            this.previouslyLoaded.delete(KEY);
+                        }
+                    }
+                    if (!resouceIsDisposed) {
+                        return res as T;
+                    }
+                }
+
+                const ext = progressiveInfo;
+                const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
+
+                    const loader = new GLTFLoader();
+                    addDracoAndKTX2Loaders(loader);
+
+                    if (debug) {
+                        await new Promise<void>(resolve => setTimeout(resolve, 1000));
+                        if (debugverbose) console.warn("Start loading (delayed) " + lod_url, ext.guid);
+                    }
+
+                    let url = lod_url;
+                    if (ext && Array.isArray(ext.lods)) {
+                        const lodinfo = ext.lods[level];
+                        if (lodinfo.hash) {
+                            url += "?v=" + lodinfo.hash;
+                        }
+                    }
+                    const gltf = await loader.loadAsync(url).catch(err => {
+                        console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
+                        return null;
+                    });
+                    if (!gltf) return null;
+
+                    const parser = gltf.parser;
+                    if (debugverbose) console.log("Loading finished " + lod_url, ext.guid);
+                    let index = 0;
+
+                    if (gltf.parser.json.textures) {
+                        let found = false;
+                        for (const tex of gltf.parser.json.textures) {
+                            // find the texture index
+                            if (tex?.extensions) {
+                                const other: NEEDLE_progressive_model = tex?.extensions[EXTENSION_NAME];
+                                if (other?.guid) {
+                                    if (other.guid === ext.guid) {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            index++;
+                        }
+                        if (found) {
+                            let tex = await parser.getDependency("texture", index) as Texture;
+                            if (debugverbose) console.log("change \"" + current.name + "\" → \"" + tex.name + "\"", lod_url, index, tex, KEY);
+                            if (current instanceof Texture)
+                                tex = this.copySettings(current, tex);
+                            if (tex) {
+                                (tex as any).guid = ext.guid;
+                            }
+                            return resolve(tex);
+                        }
+                    }
+
+                    index = 0;
+
+                    if (gltf.parser.json.meshes) {
+                        let found = false;
+                        for (const mesh of gltf.parser.json.meshes) {
+                            // find the mesh index
+                            if (mesh?.extensions) {
+                                const other: NEEDLE_progressive_model = mesh?.extensions[EXTENSION_NAME];
+                                if (other?.guid) {
+                                    if (other.guid === ext.guid) {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            index++;
+                        }
+                        if (found) {
+                            const mesh = await parser.getDependency("mesh", index) as Mesh | Group;
+
+                            const meshExt = ext as NEEDLE_progressive_mesh_model;
+
+                            if (debugverbose) console.log(`Loaded Mesh \"${mesh.name}\"`, lod_url, index, mesh, KEY);
+
+                            if ((mesh as Mesh).isMesh === true) {
+                                const geo = (mesh as Mesh).geometry as BufferGeometry;
+                                NEEDLE_progressive.assignLODInformation(LOD.url, geo, LODKEY, level, undefined, meshExt.density);
+                                return resolve(geo);
+                            }
+                            else {
+                                const geometries = new Array<BufferGeometry>();
+                                for (let i = 0; i < mesh.children.length; i++) {
+                                    const child = mesh.children[i];
+                                    if (child instanceof Mesh) {
+                                        const geo = child.geometry as BufferGeometry;
+                                        NEEDLE_progressive.assignLODInformation(LOD.url, geo, LODKEY, level, i, meshExt.density);
+                                        geometries.push(geo);
+                                    }
+                                }
+                                return resolve(geometries);
+                            }
+                        }
+                    }
+
+                    // we could not find a texture or mesh with the given guid
+                    return resolve(null);
+                });
+                this.previouslyLoaded.set(KEY, request);
+                const res = await request;
+                return res as T;
+            }
+            else {
+                if (current instanceof Texture) {
+                    if (debugverbose) console.log("Load texture from uri: " + lod_url);
+                    const loader = new TextureLoader();
+                    const tex = await loader.loadAsync(lod_url);
+                    if (tex) {
+                        (tex as any).guid = progressiveInfo.guid;
+                        tex.flipY = false;
+                        tex.needsUpdate = true;
+                        tex.colorSpace = current.colorSpace;
+                        if (debugverbose)
+                            console.log(progressiveInfo, tex);
+                    }
+                    else if (debug) console.warn("failed loading", lod_url);
+                    return tex as T;
+                }
+            }
+        }
+        else {
+            if (debug)
+                console.warn(`Can not load LOD ${level}: no LOD info found for \"${LODKEY}\" ${current.name}`, current.type);
+        }
+        return null;
+    }
+
+    private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number, density?: number) {
+        if (!res) return;
+        if (!res.userData) res.userData = {};
+        const info: LODInformation = new LODInformation(url, key, level, index, density);
+        res.userData.LODS = info;
+        res.userData.LOD = level;
+    }
+    private static getAssignedLODInformation(res: ObjectThatMightHaveLODs | null | undefined): null | LODInformation {
+        return res?.userData?.LODS || null;
+    }
+
+    private static readonly _copiedTextures: WeakMap<Texture, Texture> = new Map();
+
+    private static copySettings(source: Texture, target: Texture): Texture {
+        // don't copy again if the texture was processed before
+        const existingClone = this._copiedTextures.get(source);
+        if (existingClone) {
+            return existingClone;
+        }
+        // We need to clone e.g. when the same texture is used multiple times (but with e.g. different wrap settings)
+        // This is relatively cheap since it only stores settings
+        // This should only happen once ever for every texture
+        target = target.clone();
+        this._copiedTextures.set(source, target);
+        // we re-use the offset and repeat settings because it might be animated
+        target.offset = source.offset;
+        target.repeat = source.repeat;
+        target.colorSpace = source.colorSpace;
+        return target;
+
+    }
+}
+
+declare type ObjectThatMightHaveLODs = { name: string, userData?: { LODS?: LODInformation, readonly LOD?: number } };
+
+// declare type GetLODInformation = () => LODInformation | null;
+
+class LODInformation {
+    readonly url: string;
+    /** the key to lookup the LOD information */
+    readonly key: string;
+    readonly level: number;
+    /** For multi objects (e.g. a group of meshes) this is the index of the object */
+    readonly index?: number;
+    /** the mesh density */
+    readonly density?: number;
+
+    constructor(url: string, key: string, level: number, index?: number, density?: number) {
+        this.url = url;
+        this.key = key;
+        this.level = level;
+        if (index != undefined)
+            this.index = index;
+        if (density != undefined)
+            this.density = density;
+    }
+};
+

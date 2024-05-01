@@ -1,0 +1,27 @@
+<html>
+
+<head>
+    <title>Minimal Example</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three/build/three.module.js",
+                "three/": "https://unpkg.com/three/"
+            }
+        }
+    </script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    <script type="module" src="https://www.unpkg.com/@needle-tools/gltf-progressive@1.0.0-alpha.4"></script>
+</head>
+
+<model-viewer src="https://engine.needle.tools/demos/lods/assets/ganesha.glb" ar shadow-intensity="1" camera-controls
+    touch-action="pan-y"></model-viewer>
+
+<style>
+    model-viewer {
+        width: 100%;
+        height: 100vh;
+    }
+</style>
+
+</html>

@@ -61,6 +61,8 @@ export function patchModelViewer(modelviewer: HTMLElement) {
 class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
     readonly modelviewer: HTMLElement;
 
+    private _didWarnAboutMissingUrl = false;
+
     constructor(modelviewer: HTMLElement) {
         this.modelviewer = modelviewer;
     }
@@ -71,7 +73,17 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
     }
 
     private getUrl() {
-        return this.modelviewer.getAttribute("src");
+        let url = this.modelviewer.getAttribute("src");
+        // fallback in case the attribute is not set but the src property is
+        if (!url) {
+            url = this.modelviewer["src"];
+        }
+        if (!url) {
+            if (!this._didWarnAboutMissingUrl)
+                console.warn("No url found in modelviewer", this.modelviewer);
+            this._didWarnAboutMissingUrl = true;
+        }
+        return url;
     }
 
     private tryGetCurrentGLTF(scene: Scene): GLTF | undefined {
@@ -84,7 +96,6 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
         const currentGLTF = this.tryGetCurrentGLTF(scene);
         const url = this.getUrl();
         if (!url) {
-            console.error("No url found in modelviewer");
             return;
         }
         if (currentGLTF) {
@@ -127,7 +138,6 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
         object[$meshLODSymbol] = true;
         const url = this.getUrl();
         if (!url) {
-            console.error("No url found in modelviewer");
             return;
         }
         // modelviewer has all the information we need in the userData (associations + gltfExtensions)

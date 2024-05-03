@@ -101,7 +101,13 @@ export class LODsManager {
         const opaque = renderList.opaque;
         for (const entry of opaque) {
             const object = entry.object as any;
-
+            if (object instanceof Mesh || (object.isMesh)) {
+                this.updateLODs(scene, camera, object, desiredDensity);
+            }
+        }
+        const transparent = renderList.transparent;
+        for(const entry of transparent) {
+            const object = entry.object as any;
             if (object instanceof Mesh || (object.isMesh)) {
                 this.updateLODs(scene, camera, object, desiredDensity);
             }

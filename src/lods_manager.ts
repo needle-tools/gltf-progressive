@@ -100,6 +100,19 @@ export class LODsManager {
         const renderList = this.renderer.renderLists.get(scene, stack);
         const opaque = renderList.opaque;
         for (const entry of opaque) {
+            if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
+                // Ignore the skybox
+                if (entry.material.name === "SphericalGaussianBlur" || entry.material.name == "BackgroundCubeMaterial" || entry.material.name === "CubemapFromEquirect" || entry.material.name === "EquirectangularToCubeUV") {
+                    if (debugProgressiveLoading) {
+                        if (!entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"]) {
+                            entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"] = true;
+                            console.warn("Ignoring skybox or BLIT object", entry, entry.material.name, entry.material.type);
+                        }
+                    }
+                    continue;
+                }
+            }
+
             const object = entry.object as any;
             if (object instanceof Mesh || (object.isMesh)) {
                 this.updateLODs(scene, camera, object, desiredDensity);

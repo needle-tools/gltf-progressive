@@ -1,4 +1,4 @@
-import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Texture, TextureLoader } from "three";
+import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, ShaderMaterial, Texture, TextureLoader } from "three";
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
@@ -282,10 +282,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
             if (debug) debug_materials.add(material);
 
-            if (material instanceof RawShaderMaterial) {
+            // Handle custom shaders / uniforms progressive textures. This includes support for VRM shaders
+            if ((material as ShaderMaterial).uniforms && (material as RawShaderMaterial).isRawShaderMaterial || (material as ShaderMaterial).isShaderMaterial === true) {
                 // iterate uniforms of custom shaders
-                for (const slot of Object.keys(material.uniforms)) {
-                    const val = material.uniforms[slot].value as Texture;
+                const shaderMaterial = material as ShaderMaterial;
+                for (const slot of Object.keys(shaderMaterial.uniforms)) {
+                    const val = shaderMaterial.uniforms[slot].value as Texture;
                     if (val?.isTexture === true) {
                         const task = this.assignTextureLODForSlot(val, level, material, slot);
                         promises.push(task);

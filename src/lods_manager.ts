@@ -14,7 +14,7 @@ const suppressProgressiveLoading = getParam("noprogressive");
  * Instead of using the LODs manager directly you can also call `useNeedleProgressive` to enable progressive loading for a GLTFLoader
  */
 export class LODsManager {
-    
+
     /** Assign a function to draw debug lines for the LODs. This function will be called with the start and end position of the line and the color of the line when the `debugprogressive` query parameter is set.
      */
     static debugDrawLine?: (a: Vector3, b: Vector3, color: number) => void;
@@ -43,6 +43,7 @@ export class LODsManager {
         this.renderer = renderer;
     }
 
+    private _frame: number = 0;
     private _originalRender?: (scene: Scene, camera: Camera) => void;
 
     /**
@@ -54,15 +55,21 @@ export class LODsManager {
         // Save the original render method
         this._originalRender = this.renderer.render;
         const self = this;
-        let frames = 0;
         createLoaders(this.renderer);
         this.renderer.render = function (scene: Scene, camera: Camera) {
-            const frame = frames++;
+            // check if this render call is rendering to a texture or the canvas
+            // if it's rendering to a texture we don't want to update the LODs
+            // This might need to be loosened later - e.g. we might want to update LODs for a render texture - but then we need to store the last LOD level differently and we also might not want to  perform all the plugin calls?
+            const renderTarget = self.renderer.getRenderTarget();
+            if (renderTarget == null) {
+                stack = 0;
+                self._frame += 1;
+            }
+            const frame = self._frame;
             const stack_level = stack++;
             self.onBeforeRender(scene, camera, stack_level, frame);
             self._originalRender!.call(this, scene, camera);
             self.onAfterRender(scene, camera, stack_level, frame);
-            stack--;
         };
     }
     disable() {
@@ -77,52 +84,54 @@ export class LODsManager {
 
     private onAfterRender(scene: Scene, camera: Camera, stack: number, frame: number) {
 
-        if (suppressProgressiveLoading) return;
         if (this.pause) return;
-        if (this.updateInterval > 0 && frame % this.updateInterval != 0) return;
 
-        this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
-        const desiredDensity = 100_000;
+        // we only want to update LODs during the main render call
+        if (stack == 0) {
+            if (suppressProgressiveLoading) return;
+            if (this.updateInterval > 0 && frame % this.updateInterval != 0) return;
+            this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
+            const desiredDensity = 100_000;
 
-        // const isLowPerformanceDevice = false;// isMobileDevice();
+            // const isLowPerformanceDevice = false;// isMobileDevice();
 
-        // Experiment: quick & dirty performance-adaptive LODs
-        /* 
-        if (this.context.time.smoothedFps < 59) {
-            currentAllowedDensity *= 0.5;
-        }
-        else if (this.context.time.smoothedFps >= 59) {
-            currentAllowedDensity *= 1.25;
-        }
-        */
-
-        const renderList = this.renderer.renderLists.get(scene, stack);
-        const opaque = renderList.opaque;
-        for (const entry of opaque) {
-            if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
-                // Ignore the skybox
-                if (entry.material.name === "SphericalGaussianBlur" || entry.material.name == "BackgroundCubeMaterial" || entry.material.name === "CubemapFromEquirect" || entry.material.name === "EquirectangularToCubeUV") {
-                    if (debugProgressiveLoading) {
-                        if (!entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"]) {
-                            entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"] = true;
-                            console.warn("Ignoring skybox or BLIT object", entry, entry.material.name, entry.material.type);
+            // Experiment: quick & dirty performance-adaptive LODs
+            /* 
+            if (this.context.time.smoothedFps < 59) {
+                currentAllowedDensity *= 0.5;
+            }
+            else if (this.context.time.smoothedFps >= 59) {
+                currentAllowedDensity *= 1.25;
+            }
+            */
+            const renderList = this.renderer.renderLists.get(scene, stack);
+            const opaque = renderList.opaque;
+            for (const entry of opaque) {
+                if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
+                    // Ignore the skybox
+                    if (entry.material.name === "SphericalGaussianBlur" || entry.material.name == "BackgroundCubeMaterial" || entry.material.name === "CubemapFromEquirect" || entry.material.name === "EquirectangularToCubeUV") {
+                        if (debugProgressiveLoading) {
+                            if (!entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"]) {
+                                entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"] = true;
+                                console.warn("Ignoring skybox or BLIT object", entry, entry.material.name, entry.material.type);
+                            }
                         }
+                        continue;
                     }
-                    continue;
+                }
+
+                const object = entry.object as any;
+                if (object instanceof Mesh || (object.isMesh)) {
+                    this.updateLODs(scene, camera, object, desiredDensity);
                 }
             }
-
-            const object = entry.object as any;
-            if (object instanceof Mesh || (object.isMesh)) {
-                this.updateLODs(scene, camera, object, desiredDensity);
-            }
-        }
-        const transparent = renderList.transparent;
-        for(const entry of transparent) {
-            const object = entry.object as any;
-            if (object instanceof Mesh || (object.isMesh)) {
-                this.updateLODs(scene, camera, object, desiredDensity);
+            const transparent = renderList.transparent;
+            for (const entry of transparent) {
+                const object = entry.object as any;
+                if (object instanceof Mesh || (object.isMesh)) {
+                    this.updateLODs(scene, camera, object, desiredDensity);
+                }
             }
         }
     }
@@ -130,11 +139,11 @@ export class LODsManager {
     /** Update the LOD levels for the renderer. */
     private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number) {
 
+
         for (const plugin of this.plugins) {
             plugin.onBeforeUpdateLOD?.(this.renderer, scene, camera, object);
         }
 
-        // we currently only support auto LOD changes for meshes
         let state = object.userData.LOD_state as LOD_state;
         if (!state) {
             state = new LOD_state();
@@ -144,9 +153,8 @@ export class LODsManager {
         let level = this.calculateLodLevel(camera, object, state, desiredDensity);
         level = Math.round(level);
 
-        // if (object.name == "Object_20")
-        //     console.log(object.name, state.lastScreenCoverage, level)
 
+        // we currently only support auto LOD changes for meshes
         if (level >= 0) {
             this.loadProgressiveMeshes(object, level);
         }

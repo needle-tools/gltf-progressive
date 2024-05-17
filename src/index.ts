@@ -2,6 +2,7 @@
 export * from "./extension.js"
 export * from "./plugins/index.js"
 export { LODsManager } from "./lods_manager.js"
+export { setDracoDecoderLocation, setKTX2TranscoderLocation } from "./loaders.js"
 
 import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";

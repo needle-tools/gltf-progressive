@@ -57,6 +57,7 @@ export class LODsManager {
         const self = this;
         createLoaders(this.renderer);
         this.renderer.render = function (scene: Scene, camera: Camera) {
+
             // check if this render call is rendering to a texture or the canvas
             // if it's rendering to a texture we don't want to update the LODs
             // This might need to be loosened later - e.g. we might want to update LODs for a render texture - but then we need to store the last LOD level differently and we also might not want to  perform all the plugin calls?
@@ -82,12 +83,28 @@ export class LODsManager {
     private onBeforeRender(_scene: Scene, _camera: Camera, _stack: number, _frame: number) {
     }
 
-    private onAfterRender(scene: Scene, camera: Camera, stack: number, frame: number) {
+    private onAfterRender(scene: Scene, camera: Camera, _stack: number, frame: number) {
 
         if (this.pause) return;
 
-        // we only want to update LODs during the main render call
-        if (stack == 0) {
+        const renderList = this.renderer.renderLists.get(scene, 0);
+        const opaque = renderList.opaque;
+        let updateLODs = true;
+
+        // check if we're rendering a postprocessing pass
+        if (opaque.length === 1) {
+            const material = opaque[0].material;
+            // pmndrs postprocessing
+            if (material.name === "EffectMaterial") {
+                updateLODs = false;
+            }
+            // builtin three postprocessing
+            else if (material.name === "CopyShader") {
+                updateLODs = false;
+            }
+        }
+
+        if (updateLODs) {
             if (suppressProgressiveLoading) return;
             if (this.updateInterval > 0 && frame % this.updateInterval != 0) return;
             this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -105,8 +122,6 @@ export class LODsManager {
                 currentAllowedDensity *= 1.25;
             }
             */
-            const renderList = this.renderer.renderLists.get(scene, stack);
-            const opaque = renderList.opaque;
             for (const entry of opaque) {
                 if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
                     // Ignore the skybox

@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.12] - 2023-05-19
+- fix: update LODs when using postprocessing
+
 ## [1.0.0-alpha.11] - 2023-05-17
 - add: expose `setDracoDecoderLocation` and `setKTX2TranscoderLocation`
 - fix: allow using draco decoder and ktx2 transcoder from local filepath

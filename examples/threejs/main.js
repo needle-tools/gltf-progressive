@@ -21,9 +21,11 @@ window.addEventListener('resize', () => {
 
 const orbit = new OrbitControls(camera, renderer.domElement);
 orbit.target = new THREE.Vector3(0, 0, 0);
-camera.position.z = 4;
+camera.position.x = -1;
+camera.position.y = .5;
+camera.position.z = 2;
 
-const grid = new THREE.GridHelper(10, 10);
+const grid = new THREE.GridHelper(10, 10, 0x444444, 0x666666);
 scene.add(grid);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, .2);

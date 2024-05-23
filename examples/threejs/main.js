@@ -11,7 +11,17 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+
+window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+});
+
 const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target = new THREE.Vector3(0, 0, 0);
+camera.position.z = 4;
 
 const grid = new THREE.GridHelper(10, 10);
 scene.add(grid);
@@ -19,26 +29,6 @@ scene.add(grid);
 const directionalLight = new THREE.DirectionalLight(0xffffff, .2);
 directionalLight.position.set(1, 1, 0);
 scene.add(directionalLight);
-
-orbit.target = new THREE.Vector3(0, 0, 0);
-// camera.position.x = -30;
-// camera.position.y = 20;
-camera.position.z = 4;
-
-// This is the model we want to load
-const url = "https://engine.needle.tools/demos/gltf-progressive/threejs/assets/model.glb";
-
-const gltfLoader = new GLTFLoader();
-
-// Integrate @needle-tools/gltf-progressive
-useNeedleProgressive(url, renderer, gltfLoader)
-
-// just call the load method as usual
-gltfLoader.load(url, gltf => {
-    console.log(gltf)
-    scene.add(gltf.scene)
-})
-
 
 
 // Animate the scene
@@ -49,10 +39,6 @@ function animate() {
 }
 animate();
 
-
-
-
-
 const environmentUrl = "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/1k/overcast_soil_1k.exr";
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
@@ -62,5 +48,23 @@ new EXRLoader().load(environmentUrl, texture => {
     texture.dispose();
     pmremGenerator.dispose();
 });
+
+
+
+
+// Integrate @needle-tools/gltf-progressive
+// This is the model we want to load
+const url = "https://engine.needle.tools/demos/gltf-progressive/threejs/assets/model.glb";
+
+const gltfLoader = new GLTFLoader();
+
+useNeedleProgressive(url, renderer, gltfLoader)
+
+// just call the load method as usual
+gltfLoader.load(url, gltf => {
+    console.log(gltf)
+    scene.add(gltf.scene)
+})
+
 
 

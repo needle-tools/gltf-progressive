@@ -1,5 +1,6 @@
 import { execSync } from "child_process";
-import { copyFileSync, existsSync, readFileSync, rmSync } from "fs";
+import { join } from "path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { copyFile, mkdir, rm, writeFile } from "fs/promises"
 
 
@@ -35,12 +36,34 @@ async function run() {
 
     // copy npmignore
     copyFileSync(".npmignore", outDir + "/.npmignore");
+
+    // copy examples
+    console.log("Copy examples...");
+    copyRecursive("examples", outDir + "/examples");
+
     // publish to npm
     const cmd = isDryRun ? "npm publish --dry-run" : "npm publish";
     console.log("Begin publish..." + (isDryRun ? " (dry run)" : ""));
     console.log(`Directory: \"${outDir}\"`);
-    execSync(cmd, { cwd: outDir, stdio: "inherit"});
+    execSync(cmd, { cwd: outDir, stdio: "inherit" });
     console.log("Finished publish!" + (isDryRun ? " (dry run)" : ""))
 }
 
+function copyRecursive(src, dest) {
+    const entries = readdirSync(src, { withFileTypes: true });
 
+    for (const file of entries) {
+        // ignore node_modules
+        if (file.name === "node_modules")
+            continue;
+        if (file.isDirectory()) {
+            mkdirSync(join(dest, file.name));
+            copyRecursive(join(src, file.name), join(dest, file.name));
+        }
+        else {
+            mkdirSync(dest, { recursive: true });
+            copyFileSync(join(src, file.name), join(dest, file.name));
+        }
+    }
+
+}

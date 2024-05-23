@@ -2,3 +2,4 @@ src
 *.code-workspace
 **/tsconfig.tsbuildinfo
 tools/**
+node_modules/**

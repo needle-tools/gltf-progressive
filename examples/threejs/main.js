@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { useNeedleProgressive, } from "@needle-engine/gltf-progressive"
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x555555);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -14,7 +16,7 @@ const orbit = new OrbitControls(camera, renderer.domElement);
 const grid = new THREE.GridHelper(10, 10);
 scene.add(grid);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+const directionalLight = new THREE.DirectionalLight(0xffffff, .2);
 directionalLight.position.set(1, 1, 0);
 scene.add(directionalLight);
 
@@ -38,6 +40,7 @@ gltfLoader.load(url, gltf => {
 })
 
 
+
 // Animate the scene
 function animate() {
     requestAnimationFrame(animate);
@@ -45,3 +48,19 @@ function animate() {
     renderer.render(scene, camera);
 }
 animate();
+
+
+
+
+
+const environmentUrl = "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/1k/overcast_soil_1k.exr";
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
+new EXRLoader().load(environmentUrl, texture => {
+    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+    scene.environment = envMap;
+    texture.dispose();
+    pmremGenerator.dispose();
+});
+
+

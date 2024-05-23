@@ -16,11 +16,15 @@ camera.position.x = -30;
 camera.position.y = 20;
 camera.position.z = 30;
 
-
+// This is the model we want to load
 const url = "https://staging.api.cloud.needle.tools/v1/public/90b5411/1659b019/";
+
 const gltfLoader = new GLTFLoader();
+
+// Integrate @needle-tools/gltf-progressive
 useNeedleProgressive(url, renderer, gltfLoader)
 
+// just call the load method as usual
 gltfLoader.load(url, gltf => {[
     scene.add(gltf.scene)
 ]})

@@ -20,10 +20,10 @@ window.addEventListener('resize', () => {
 });
 
 const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.target = new THREE.Vector3(0, 0, 0);
+orbit.target = new THREE.Vector3(0, .6, 0);
 camera.position.x = -1;
-camera.position.y = .5;
-camera.position.z = 2;
+camera.position.y = 1.5;
+camera.position.z = 1.8;
 
 const grid = new THREE.GridHelper(10, 10, 0x444444, 0x666666);
 scene.add(grid);
@@ -41,10 +41,10 @@ function animate() {
 }
 animate();
 
-const environmentUrl = "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/1k/overcast_soil_1k.exr";
+const environmentTextureUrl = "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/1k/studio_small_09_1k.exr";
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
-new EXRLoader().load(environmentUrl, texture => {
+new EXRLoader().load(environmentTextureUrl, texture => {
     const envMap = pmremGenerator.fromEquirectangular(texture).texture;
     scene.environment = envMap;
     texture.dispose();
@@ -60,12 +60,16 @@ const url = "https://engine.needle.tools/demos/gltf-progressive/threejs/assets/m
 
 const gltfLoader = new GLTFLoader();
 
+/**
+ * Call this method to register the progressive loader
+ */
 useNeedleProgressive(url, renderer, gltfLoader)
 
 // just call the load method as usual
 gltfLoader.load(url, gltf => {
     console.log(gltf)
     scene.add(gltf.scene)
+    gltf.scene.position.y += .95;
 })
 
 

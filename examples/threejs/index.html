@@ -23,6 +23,29 @@
 
 <body>
     <script type="module" src="./main.js"></script>
+    <button class="show-source">Show Source</button>
 </body>
+
+
+<style>
+    .show-source {
+        position: fixed;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 100;
+        border-radius: .5rem;
+        border: none;
+        padding: .3rem .5rem;
+    }
+</style>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelector('.show-source').addEventListener('click', () => {
+            const scriptSource = document.querySelector('script[type="module"]').src;
+            console.log(scriptSource);
+            window.open(scriptSource);
+        });
+    });
+</script>
 
 </html>

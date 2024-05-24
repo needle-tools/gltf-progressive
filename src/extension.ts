@@ -753,6 +753,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         target.offset = source.offset;
         target.repeat = source.repeat;
         target.colorSpace = source.colorSpace;
+        target.magFilter = source.magFilter;
+        target.minFilter = source.minFilter;
+        target.wrapS = source.wrapS;
+        target.wrapT = source.wrapT;
+        target.flipY = source.flipY;
+        target.anisotropy = source.anisotropy;
+        target.generateMipmaps = source.generateMipmaps;
+        // related: NE-4937
         return target;
 
     }

@@ -20,16 +20,16 @@ window.addEventListener('resize', () => {
 });
 
 const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.target = new THREE.Vector3(0, .6, 0);
-camera.position.x = -1;
-camera.position.y = 1.5;
-camera.position.z = 1.8;
+orbit.target = new THREE.Vector3(0, 14, 0);
+camera.position.x = 20;
+camera.position.y = 20.5;
+camera.position.z = 20.8;
 
-const grid = new THREE.GridHelper(10, 10, 0x444444, 0x666666);
+const grid = new THREE.GridHelper(50, 50, 0x444444, 0x666666);
 scene.add(grid);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, .2);
-directionalLight.position.set(1, 1, 0);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(-50, 20, 50);
 scene.add(directionalLight);
 
 
@@ -56,7 +56,7 @@ new EXRLoader().load(environmentTextureUrl, texture => {
 
 // Integrate @needle-tools/gltf-progressive
 // This is the model we want to load
-const url = "https://engine.needle.tools/demos/gltf-progressive/threejs/assets/model.glb";
+const url = "https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb";
 
 const gltfLoader = new GLTFLoader();
 

@@ -119,7 +119,11 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
                         if (value?.isTexture === true) {
                             const textureIndex = value.userData?.associations?.textures;
                             const textureData = currentGLTF!.parser.json.textures[textureIndex];
-                            if (textureData.extensions?.[EXTENSION_NAME]) {
+                            if(!textureData){
+                                console.warn("Texture data not found for texture index " + textureIndex);
+                                continue;
+                            }
+                            if (textureData?.extensions?.[EXTENSION_NAME]) {
                                 const ext = textureData.extensions[EXTENSION_NAME] as NEEDLE_progressive_mesh_model;
                                 if (ext && url) {
                                     NEEDLE_progressive.registerTexture(url, value, ext.lods.length, ext);

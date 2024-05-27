@@ -29,6 +29,11 @@ export class LODsManager {
     readonly cameraFrustrum = new Frustum();
 
     /**
+     * The target triangle density is the desired max amount of triangles on screen when the mesh is filling the screen.  
+     */
+    targetTriangleDensity: number = 200_000;
+
+    /**
      * The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 1, the LODs will be updated every second frame, etc.
      */
     updateInterval: number = 0;
@@ -109,7 +114,7 @@ export class LODsManager {
             if (this.updateInterval > 0 && frame % this.updateInterval != 0) return;
             this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
-            const desiredDensity = 100_000;
+            const desiredDensity = this.targetTriangleDensity;
 
             // const isLowPerformanceDevice = false;// isMobileDevice();
 

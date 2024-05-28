@@ -2,7 +2,7 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { getParam, resolveUrl } from "./utils.js";
+import { getParam, getRaycastMesh, resolveUrl, setRaycastMesh } from "./utils.js";
 
 
 
@@ -476,6 +476,11 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (existing) existing.push(mesh.geometry as BufferGeometry);
         else existing = [mesh.geometry as BufferGeometry];
         NEEDLE_progressive.lowresCache.set(key, existing);
+
+        if (level > 0 && !getRaycastMesh(mesh)) {
+            setRaycastMesh(mesh, geometry);
+        }
+
 
         for (const plugin of plugins) {
             plugin.onRegisteredNewMesh?.(mesh, ext);

@@ -23,10 +23,3 @@ export interface NEEDLE_progressive_plugin {
  * @internal
  */
 export const plugins = new Array<NEEDLE_progressive_plugin>();
-
-/**
- * Register a plugin for the progressive extension. The plugin callbacks will be called at different stages of the progressive extension.
- */
-export function registerPlugin(plugin: NEEDLE_progressive_plugin) {
-    plugins.push(plugin);
-}

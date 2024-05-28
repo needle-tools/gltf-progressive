@@ -2,16 +2,41 @@ import { Box3, BufferGeometry, Camera, Frustum, Material, Matrix4, Mesh, Object3
 import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam } from "./utils.js"
-import { NEEDLE_progressive_plugin } from "./plugins/plugin.js";
+import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");
+
+const $lodsManager = Symbol("Needle:LODSManager");
 
 /**
  * The LODsManager class is responsible for managing the LODs and progressive assets in the scene. It will automatically update the LODs based on the camera position, screen coverage and mesh density of the objects.   
  * It must be enabled by calling the `enable` method.     
  * 
- * Instead of using the LODs manager directly you can also call `useNeedleProgressive` to enable progressive loading for a GLTFLoader
+ * Instead of using the LODs manager directly you can also call `useNeedleProgressive` to enable progressive loading for a GLTFLoader   
+ * 
+ * ### Plugins
+ * Use {@link LODsManager.addPlugin} to add a plugin to the LODsManager. A plugin can be used to hook into the LOD update process and modify the LOD levels or perform other actions.
+ * 
+ * @example Adding a LODsManager to a Three.js scene:
+ * ```ts
+ * import { LODsManager } from "@needle-tools/gltf-progressive";
+ * import { WebGLRenderer, Scene, Camera, Mesh } from "three";
+ * 
+ * const renderer = new WebGLRenderer();
+ * const lodsManager = LODsManager.get(renderer);
+ * lodsManager.enable();
+ * ```
+ * 
+ * @example Using the LODsManager with a GLTFLoader:
+ * ```ts
+ * import { useNeedleProgressive } from "@needle-tools/gltf-progressive";
+ * import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+ * 
+ * const url = 'https://yourdomain.com/yourmodel.glb';
+ * const loader = new GLTFLoader();
+ * const lodsManager = useNeedleProgressive(url, renderer, loader);
+ * ```
  */
 export class LODsManager {
 
@@ -22,6 +47,27 @@ export class LODsManager {
     /** @internal */
     static getObjectLODState(object: Object3D): LOD_state | undefined {
         return object.userData?.LOD_state;
+    }
+
+    static addPlugin(plugin: NEEDLE_progressive_plugin) {
+        plugins.push(plugin);
+    }
+    static removePlugin(plugin: NEEDLE_progressive_plugin) {
+        const index = plugins.indexOf(plugin);
+        if (index >= 0) plugins.splice(index, 1);
+    }
+
+    /**
+     * Gets the LODsManager for the given renderer. If the LODsManager does not exist yet, it will be created.  
+     * @param renderer The renderer to get the LODsManager for.
+     * @returns The LODsManager instance.
+     */
+    static get(renderer: WebGLRenderer): LODsManager {
+        if (renderer[$lodsManager]) {
+            return renderer[$lodsManager] as LODsManager;
+        }
+        const lodsManager = new LODsManager(renderer);
+        return lodsManager;
     }
 
     readonly renderer: WebGLRenderer;
@@ -42,9 +88,9 @@ export class LODsManager {
      */
     pause: boolean = false;
 
-    readonly plugins: NEEDLE_progressive_plugin[] = [];
+    // readonly plugins: NEEDLE_progressive_plugin[] = [];
 
-    constructor(renderer: WebGLRenderer) {
+    private constructor(renderer: WebGLRenderer) {
         this.renderer = renderer;
     }
 
@@ -160,7 +206,7 @@ export class LODsManager {
     private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number) {
 
 
-        for (const plugin of this.plugins) {
+        for (const plugin of plugins) {
             plugin.onBeforeUpdateLOD?.(this.renderer, scene, camera, object);
         }
 
@@ -196,7 +242,7 @@ export class LODsManager {
             }
         }
 
-        for (const plugin of this.plugins) {
+        for (const plugin of plugins) {
             plugin.onAfterUpdatedLOD?.(this.renderer, scene, camera, object, level)
         }
 

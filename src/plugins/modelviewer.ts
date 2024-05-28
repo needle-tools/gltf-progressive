@@ -28,7 +28,7 @@ export function patchModelViewer(modelviewer: HTMLElement) {
     }
     if (renderer) {
         console.log("Adding Needle LODs to modelviewer");
-        const lod = new LODsManager(renderer);
+        const lod = LODsManager.get(renderer);
         lod.plugins.push(new RegisterModelviewerDataPlugin(modelviewer))
         lod.enable();
 

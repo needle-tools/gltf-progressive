@@ -1,8 +1,4 @@
 
-export * from "./extension.js"
-export * from "./plugins/index.js"
-export { LODsManager } from "./lods_manager.js"
-export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders } from "./loaders.js"
 
 import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -10,9 +6,14 @@ import { addDracoAndKTX2Loaders, createLoaders } from "./loaders.js";
 import { NEEDLE_progressive } from "./extension.js";
 import { LODsManager } from "./lods_manager.js";
 
+export * from "./extension.js"
+export * from "./plugins/index.js"
+export { LODsManager } from "./lods_manager.js"
+export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders } from "./loaders.js"
+export { getRaycastMesh, setRaycastMesh } from "./utils.js"
+
 
 declare class UseNeedleGLTFProgressive {
-    /** */
     enableLODsManager?: boolean;
 };
 
@@ -35,7 +36,8 @@ export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loade
     createLoaders(renderer);
     addDracoAndKTX2Loaders(loader);
     loader.register(p => new NEEDLE_progressive(p, url));
-    const lod = new LODsManager(renderer);
+
+    const lod = LODsManager.get(renderer);
     if (opts?.enableLODsManager !== false) {
         lod.enable();
     }

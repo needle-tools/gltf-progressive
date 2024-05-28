@@ -76,6 +76,7 @@ export class LODsManager {
 
     /**
      * The target triangle density is the desired max amount of triangles on screen when the mesh is filling the screen.  
+     * @default 200_000
      */
     targetTriangleDensity: number = 200_000;
 

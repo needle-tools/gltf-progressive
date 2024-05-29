@@ -300,6 +300,7 @@ export class LODsManager {
 
     private readonly _sphere = new Sphere();
     private readonly _tempBox = new Box3();
+    private readonly _tempBox2 = new Box3();
     private readonly tempMatrix = new Matrix4();
     private readonly _tempWorldPosition = new Vector3();
     private readonly _tempBoxSize = new Vector3();
@@ -309,6 +310,16 @@ export class LODsManager {
     private static corner1 = new Vector3();
     private static corner2 = new Vector3();
     private static corner3 = new Vector3();
+
+    private static readonly _tempPtInside = new Vector3();
+    private static isInside(box: Box3, matrix: Matrix4) {
+        const min = box.min;
+        const max = box.max;
+        const centerx = (min.x + max.x) * 0.5;
+        const centery = (min.y + max.y) * 0.5;
+        const pt1 = this._tempPtInside.set(centerx, centery, min.z).applyMatrix4(matrix);
+        return pt1.z < 0;
+    }
 
     private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number): number {
         if (!mesh) return -1;
@@ -349,8 +360,8 @@ export class LODsManager {
                 return 99;
             }
 
-            const box = mesh.geometry.boundingBox;
-            if (box && (camera as PerspectiveCamera).isPerspectiveCamera) {
+            const boundingBox = mesh.geometry.boundingBox;
+            if (boundingBox && (camera as PerspectiveCamera).isPerspectiveCamera) {
                 const cam = camera as PerspectiveCamera;
 
                 // hack: if the mesh has vertex colors, has less than 100 vertices we always select the highest LOD
@@ -366,7 +377,7 @@ export class LODsManager {
                 }
 
                 // calculate size on screen
-                this._tempBox.copy(box);
+                this._tempBox.copy(boundingBox);
                 this._tempBox.applyMatrix4(mesh.matrixWorld);
 
                 // Converting into projection space has the disadvantage that objects further to the side
@@ -376,6 +387,9 @@ export class LODsManager {
                 // High distortions would lead to lower LOD levels.
                 // "Centrality" of the calculated screen-space bounding box could be a factor here –
                 // what's the distance of the bounding box to the center of the screen?
+                if (LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
+                    return 0;
+                }
                 this._tempBox.applyMatrix4(this.projectionScreenMatrix);
 
                 // TODO might need to be adjusted for cameras that are rendered during an XR session but are 
@@ -418,8 +432,8 @@ export class LODsManager {
                 boxSize.x *= cam.aspect;
 
                 const matView = camera.matrixWorldInverse;
-                const box2 = new Box3();
-                box2.copy(box);
+                const box2 = this._tempBox2;
+                box2.copy(boundingBox);
                 box2.applyMatrix4(mesh.matrixWorld);
                 box2.applyMatrix4(matView);
                 const boxSize2 = box2.getSize(this._tempBox2Size);

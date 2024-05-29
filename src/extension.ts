@@ -337,8 +337,15 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return Promise.resolve(current);
         }
 
-        // const info = this.onProgressiveLoadStart(context, source, material, slot);
+        // save which texture level was requested last
+        const key = "LOD:requested level:" + slot;
+        if (material) material[key] = level;
+
         return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
+
+            // check if the requested level has changed in the meantime
+            if (material && material[key] != level) return null;
+            // if (material) delete material[key];
 
             // this can currently not happen
             if (Array.isArray(tex)) return null;

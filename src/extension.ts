@@ -548,7 +548,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
 
             /** the unresolved LOD url */
-            const unresolved_lod_url = Array.isArray(progressiveInfo.lods) ? progressiveInfo.lods[level].path : progressiveInfo.lods;
+            const unresolved_lod_url = Array.isArray(progressiveInfo.lods) ? progressiveInfo.lods[level]?.path : progressiveInfo.lods;
 
             // check if we have a uri
             if (!unresolved_lod_url) {

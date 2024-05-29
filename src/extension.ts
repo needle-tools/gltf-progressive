@@ -644,6 +644,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         }
                         if (found) {
                             let tex = await parser.getDependency("texture", index) as Texture;
+                            if (tex) {
+                                NEEDLE_progressive.assignLODInformation(LOD.url, tex, LODKEY, level, undefined, undefined);
+                            }
                             if (debugverbose) console.log("change \"" + current.name + "\" → \"" + tex.name + "\"", lod_url, index, tex, KEY);
                             if (current instanceof Texture)
                                 tex = this.copySettings(current, tex);
@@ -651,6 +654,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                                 (tex as any).guid = ext.guid;
                             }
                             return resolve(tex);
+                        }
+                        else if (debug) {
+                            console.warn("Could not find texture with guid", ext.guid);
                         }
                     }
 

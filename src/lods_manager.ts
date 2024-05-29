@@ -331,8 +331,10 @@ export class LODsManager {
             const lods = lodsInfo?.lods;
 
             // We can skip all this if we dont have any LOD information - we can ask the progressive extension for that
+            // But if the MESH has no LODs we might still have materials that do - we would need to check that
+            // Until we properly check if an object has *any* LODs we do return the best quality for now
             if (!lods || lods.length <= 0) {
-                return 99;
+                return 0;
             }
 
             if (!this.cameraFrustrum?.intersectsObject(mesh)) {

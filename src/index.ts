@@ -4,7 +4,7 @@ import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { addDracoAndKTX2Loaders, createLoaders } from "./loaders.js";
 import { NEEDLE_progressive } from "./extension.js";
-import { LODsManager } from "./lods_manager.js";
+import { LODsManager, LOD_Results } from "./lods_manager.js";
 
 export * from "./extension.js"
 export * from "./plugins/index.js"

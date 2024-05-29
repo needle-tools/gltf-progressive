@@ -9,6 +9,10 @@ const suppressProgressiveLoading = getParam("noprogressive");
 
 const $lodsManager = Symbol("Needle:LODSManager");
 
+export declare type LOD_Results = { mesh_lod: number, texture_lod: number };
+
+const levels: LOD_Results = { mesh_lod: -1, texture_lod: -1 };
+
 /**
  * The LODsManager class is responsible for managing the LODs and progressive assets in the scene. It will automatically update the LODs based on the camera position, screen coverage and mesh density of the objects.   
  * It must be enabled by calling the `enable` method.     
@@ -230,19 +234,20 @@ export class LODsManager {
             object.userData.LOD_state = state;
         }
 
-        let level = this.calculateLodLevel(camera, object, state, desiredDensity);
-        level = Math.round(level);
+        this.calculateLodLevel(camera, object, state, desiredDensity, levels);
+        levels.mesh_lod = Math.round(levels.mesh_lod);
+        levels.texture_lod = Math.round(levels.texture_lod);
 
 
         // we currently only support auto LOD changes for meshes
-        if (level >= 0) {
-            this.loadProgressiveMeshes(object, level);
+        if (levels.mesh_lod >= 0) {
+            this.loadProgressiveMeshes(object, levels.mesh_lod);
         }
 
         // TODO: we currently can not switch texture lods because we need better caching for the textures internally (see copySettings in progressive + NE-4431)
-        let textureLOD = 0;// Math.max(0, LODlevel - 2)
+        let textureLOD = levels.texture_lod;
 
-        if (object.material) {
+        if (object.material && textureLOD >= 0) {
             const debugLevel = object["DEBUG:LOD"];
             if (debugLevel != undefined) textureLOD = debugLevel;
 
@@ -257,10 +262,11 @@ export class LODsManager {
         }
 
         for (const plugin of plugins) {
-            plugin.onAfterUpdatedLOD?.(this.renderer, scene, camera, object, level)
+            plugin.onAfterUpdatedLOD?.(this.renderer, scene, camera, object, levels)
         }
 
-        state.lastLodLevel = level;
+        state.lastLodLevel_Mesh = levels.mesh_lod;
+        state.lasLodLevel_Texture = levels.texture_lod;
     }
 
 
@@ -334,8 +340,12 @@ export class LODsManager {
         return pt1.z < 0;
     }
 
-    private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number): number {
-        if (!mesh) return -1;
+    private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number, result: LOD_Results): void {
+        if (!mesh) {
+            result.mesh_lod = -1;
+            result.texture_lod = -1;
+            return;
+        }
 
         // if this is using instancing we always load level 0
         // if (this.isInstancingActive) return 0;
@@ -343,7 +353,7 @@ export class LODsManager {
         /** rough measure of "triangles on quadratic screen" – we're switching LODs based on this metric. */
         /** highest LOD level we'd ever expect to be generated */
         const maxLevel = 10;
-        let level = maxLevel + 1;
+        let mesh_level = maxLevel + 1;
 
         if (camera) {
             if (debugProgressiveLoading && mesh["DEBUG:LOD"] != undefined) {
@@ -351,14 +361,16 @@ export class LODsManager {
             }
 
             // The mesh info contains also the density for all available LOD level so we can use this for selecting which level to show
-            const lodsInfo = NEEDLE_progressive.getMeshLODInformation(mesh.geometry);
-            const lods = lodsInfo?.lods;
+            const mesh_lods_info = NEEDLE_progressive.getMeshLODInformation(mesh.geometry);
+            const mesh_lods = mesh_lods_info?.lods;
 
             // We can skip all this if we dont have any LOD information - we can ask the progressive extension for that
             // But if the MESH has no LODs we might still have materials that do - we would need to check that
             // Until we properly check if an object has *any* LODs we do return the best quality for now
-            if (!lods || lods.length <= 0) {
-                return 0;
+            if (!mesh_lods || mesh_lods.length <= 0) {
+                result.mesh_lod = 0;
+                result.texture_lod = 0;
+                return;
             }
 
             if (!this.cameraFrustrum?.intersectsObject(mesh)) {
@@ -370,7 +382,9 @@ export class LODsManager {
                 //     Gizmos.DrawWireSphere(this._sphere.center, this._sphere.radius * 1.01, 0xff5555, .5);
                 // }
                 // the object is not visible by the camera
-                return 99;
+                result.mesh_lod = 99;
+                result.texture_lod = 99;
+                return;
             }
 
             const boundingBox = mesh.geometry.boundingBox;
@@ -384,7 +398,9 @@ export class LODsManager {
                         this._sphere.applyMatrix4(mesh.matrixWorld);
                         const worldPosition = camera.getWorldPosition(this._tempWorldPosition)
                         if (this._sphere.containsPoint(worldPosition)) {
-                            return 0;
+                            result.mesh_lod = 0;
+                            result.texture_lod = 0;
+                            return;
                         }
                     }
                 }
@@ -401,7 +417,9 @@ export class LODsManager {
                 // "Centrality" of the calculated screen-space bounding box could be a factor here –
                 // what's the distance of the bounding box to the center of the screen?
                 if (LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
-                    return 0;
+                    result.mesh_lod = 0;
+                    result.texture_lod = 0;
+                    return;
                 }
                 this._tempBox.applyMatrix4(this.projectionScreenMatrix);
 
@@ -496,9 +514,9 @@ export class LODsManager {
 
                 let expectedLevel = 999;
                 // const framerate = this.context.time.smoothedFps;
-                if (lods && state.lastScreenCoverage > 0) {
-                    for (let l = 0; l < lods.length; l++) {
-                        const densityForThisLevel = lods[l].density;
+                if (mesh_lods && state.lastScreenCoverage > 0) {
+                    for (let l = 0; l < mesh_lods.length; l++) {
+                        const densityForThisLevel = mesh_lods[l].density;
                         const resultingDensity = densityForThisLevel / state.lastScreenCoverage;
                         if (resultingDensity < desiredDensity) {
                             expectedLevel = l;
@@ -507,12 +525,11 @@ export class LODsManager {
                     }
                 }
 
-                const isLowerLod = expectedLevel < level;
+                const isLowerLod = expectedLevel < mesh_level;
                 if (isLowerLod) {
-                    level = expectedLevel;
+                    mesh_level = expectedLevel;
                 }
             }
-            // }
         }
 
 
@@ -524,15 +541,23 @@ export class LODsManager {
         //     }
         // }
 
-        return level;
+        result.mesh_lod = mesh_level;
+
+        const maxTextureLOD = 4;
+        result.texture_lod = lerp(maxTextureLOD, 0, state.lastScreenCoverage * 2);
     }
 }
 
 
+function lerp(a: number, b: number, t: number) {
+    return a + (b - a) * t;
+}
+
 
 
 class LOD_state {
-    lastLodLevel: number = 0;
+    lastLodLevel_Mesh: number = 0;
+    lasLodLevel_Texture: number = 0;
     lastScreenCoverage: number = 0;
     readonly lastScreenspaceVolume: Vector3 = new Vector3();
     lastCentrality: number = 0;

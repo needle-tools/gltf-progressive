@@ -9,7 +9,7 @@ export interface NEEDLE_progressive_plugin {
     onBeforeUpdateLOD?(renderer: WebGLRenderer, scene: Scene, camera: Camera, object: Mesh): void;
 
     /** Called after the LOD level has been requested */
-    onAfterUpdatedLOD?(renderer: WebGLRenderer, scene: Scene, camera: Camera, object: Mesh, level: number): void;
+    onAfterUpdatedLOD?(renderer: WebGLRenderer, scene: Scene, camera: Camera, object: Mesh, level: { mesh_lod: number, texture_lod: number }): void;
 
     /** Called when a new mesh is registered */
     onRegisteredNewMesh?(mesh: Mesh, ext: NEEDLE_progressive_mesh_model): void;

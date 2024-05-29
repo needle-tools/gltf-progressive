@@ -761,15 +761,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
     private static copySettings(source: Texture, target: Texture): Texture {
         // don't copy again if the texture was processed before
-        const existingClone = this._copiedTextures.get(source);
+        const existingClone = this._copiedTextures.get(target);
         if (existingClone) {
             return existingClone;
         }
         // We need to clone e.g. when the same texture is used multiple times (but with e.g. different wrap settings)
         // This is relatively cheap since it only stores settings
         // This should only happen once ever for every texture
+        const original = target;
         target = target.clone();
-        this._copiedTextures.set(source, target);
+        this._copiedTextures.set(original, target);
         // we re-use the offset and repeat settings because it might be animated
         target.offset = source.offset;
         target.repeat = source.repeat;

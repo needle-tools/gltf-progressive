@@ -188,6 +188,16 @@ export class LODsManager {
                     }
                 }
 
+                switch (entry.material.type) {
+                    case "LineBasicMaterial":
+                    case "LineDashedMaterial":
+                    case "PointsMaterial":
+                    case "ShadowMaterial":
+                    case "MeshDistanceMaterial":
+                    case "MeshDepthMaterial":
+                        continue;
+                }
+
                 const object = entry.object as any;
                 if (object instanceof Mesh || (object.isMesh)) {
                     this.updateLODs(scene, camera, object, desiredDensity);

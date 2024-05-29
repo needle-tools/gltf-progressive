@@ -271,7 +271,7 @@ export class LODsManager {
      */
     private loadProgressiveTextures(material: Material, level: number): Promise<ProgressiveMaterialTextureLoadingResult[] | Texture | null> {
         if (!material) return Promise.resolve(null);
-        if (material.userData && material.userData.LOD !== level) {
+        if (material.userData && (material.userData.LOD == undefined || material.userData.LOD > level)) {
             material.userData.LOD = level;
             return NEEDLE_progressive.assignTextureLOD(material, level);
         }

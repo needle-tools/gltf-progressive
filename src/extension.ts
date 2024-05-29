@@ -333,6 +333,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (current?.isTexture !== true) return Promise.resolve(null);
 
         // if (debug) console.log("-----------\n", "FIND", material?.name, slot, current?.name, current?.userData, current, material);
+        if (slot === "glyphMap") {
+            return Promise.resolve(current);
+        }
 
         // const info = this.onProgressiveLoadStart(context, source, material, slot);
         return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {

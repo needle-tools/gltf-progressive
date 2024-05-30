@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-alpha.17] - 2023-05-30
+- update README
+
 ## [1.0.0-alpha.16] - 2023-05-29
 - fix: LODs manager now clamps to LOD 0 if the near plane is inside the bounds
 - change: Ignore certain material in lods update loop 

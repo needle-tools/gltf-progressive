@@ -3,3 +3,4 @@ src
 **/tsconfig.tsbuildinfo
 tools/**
 node_modules/**
+examples/**/dist

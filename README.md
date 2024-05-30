@@ -8,7 +8,7 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
 
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/)
 - [\<model-viewer\>](https://engine.needle.tools/demos/gltf-progressive/modelviewer)
-
+- [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
 
 
 

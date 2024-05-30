@@ -2,6 +2,7 @@ import * as path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import basicSsl from '@vitejs/plugin-basic-ssl'
+import viteCompression from 'vite-plugin-compression';
 
 export default defineConfig(async (command) => {
 
@@ -13,6 +14,7 @@ export default defineConfig(async (command) => {
         plugins: [
             react(),
             basicSsl(),
+            viteCompression({ deleteOriginFile: true }),
         ],
 
         server: {
@@ -20,19 +22,12 @@ export default defineConfig(async (command) => {
             proxy: { // workaround: specifying a proxy skips HTTP2 which is currently problematic in Vite since it causes session memory timeouts.
                 'https://localhost:3000': 'https://localhost:3000'
             },
-            watch: {
-                awaitWriteFinish: {
-                    stabilityThreshold: 500,
-                    pollInterval: 1000
-                },
-            },
             strictPort: true,
             port: 3001
         },
         build: {
             outDir: "./dist",
             emptyOutDir: true,
-            keepNames: true,
         },
         resolve: {
             alias: {

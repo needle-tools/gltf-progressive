@@ -2,10 +2,15 @@
 
 Support for loading of glTF or GLB files with progressive mesh or texture data for three.js based engines.
 
-## Samples
+## Examples
 
-- [Vanilla three.js Example](https://engine.needle.tools/demos/gltf-progressive/threejs/)
-- [\<model-viewer\> Example](https://engine.needle.tools/demos/gltf-progressive/modelviewer)
+Examples are in the `/examples` directory. Live versions can be found in the links below.  
+
+- [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/)
+- [\<model-viewer\>](https://engine.needle.tools/demos/gltf-progressive/modelviewer)
+
+
+
 
 
 # Contact ✒️

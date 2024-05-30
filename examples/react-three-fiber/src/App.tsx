@@ -9,9 +9,9 @@ import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
 
 function MyModel() {
   const { gl } = useThree()
-  const url = 'https://needle-cloud-preview-02-r26roub2hq-lz.a.run.app/api/v1/public/11908aa/26b46600a/'
+  const url = 'https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb'
   const { scene } = useGLTF(url, false, false, (loader) => {
-    useNeedleProgressive(url, gl, loader)
+    useNeedleProgressive(url, gl, loader as any)
   })
   return <primitive object={scene} />
 }
@@ -21,8 +21,8 @@ export default function App() {
   return (
     <Canvas
       frameloop="demand"
-      camera={{ position: [0, 0, .5] }}>
-      <OrbitControls />
+      camera={{ position: [25, 15, 25] }}>
+      <OrbitControls target={[0 , 10, 0]} />
       <ambientLight intensity={1} />
       <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
       <pointLight position={[-10, -10, -10]} />

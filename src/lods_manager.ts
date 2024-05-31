@@ -74,6 +74,9 @@ export class LODsManager {
     readonly projectionScreenMatrix = new Matrix4();
     readonly cameraFrustrum = new Frustum();
 
+    /** @deprecated use static `LODsManager.addPlugin()` method. This getter will be removed in later versions */
+    get plugins() { return plugins; }
+
     /**
      * The target triangle density is the desired max amount of triangles on screen when the mesh is filling the screen.  
      * @default 200_000

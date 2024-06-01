@@ -223,21 +223,24 @@ export class LODsManager {
     /** Update the LOD levels for the renderer. */
     private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number) {
 
-
-        for (const plugin of plugins) {
-            plugin.onBeforeUpdateLOD?.(this.renderer, scene, camera, object);
-        }
-
         let state = object.userData.LOD_state as LOD_state;
         if (!state) {
             state = new LOD_state();
             object.userData.LOD_state = state;
         }
 
+        // Wait a few frames before updating the LODs to make sure the object is loaded, matrices are updated, etc.
+        if (state.frames++ < 2) {
+            return;
+        }
+
+        for (const plugin of plugins) {
+            plugin.onBeforeUpdateLOD?.(this.renderer, scene, camera, object);
+        }
+
         this.calculateLodLevel(camera, object, state, desiredDensity, levels);
         levels.mesh_lod = Math.round(levels.mesh_lod);
         levels.texture_lod = Math.round(levels.texture_lod);
-
 
         // we currently only support auto LOD changes for meshes
         if (levels.mesh_lod >= 0) {
@@ -250,15 +253,7 @@ export class LODsManager {
         if (object.material && textureLOD >= 0) {
             const debugLevel = object["DEBUG:LOD"];
             if (debugLevel != undefined) textureLOD = debugLevel;
-
-            if (Array.isArray(object.material)) {
-                for (const mat of object.material) {
-                    this.loadProgressiveTextures(mat, textureLOD);
-                }
-            }
-            else {
-                this.loadProgressiveTextures(object.material, textureLOD);
-            }
+            this.loadProgressiveTextures(object.material, textureLOD);
         }
 
         for (const plugin of plugins) {
@@ -275,13 +270,19 @@ export class LODsManager {
      * @param level the LOD level to load. Level 0 is the best quality, higher levels are lower quality
      * @returns Promise with true if the LOD was loaded, false if not
      */
-    private loadProgressiveTextures(material: Material, level: number): Promise<ProgressiveMaterialTextureLoadingResult[] | Texture | null> {
-        if (!material) return Promise.resolve(null);
+    private loadProgressiveTextures(material: Material | Material[], level: number): void {
+        if (!material) return;
+
+        if (Array.isArray(material)) {
+            for (const mat of material) {
+                this.loadProgressiveTextures(mat, level);
+            }
+            return;
+        }
         if (material.userData && (material.userData.LOD == undefined || material.userData.LOD > level)) {
             material.userData.LOD = level;
-            return NEEDLE_progressive.assignTextureLOD(material, level);
+            NEEDLE_progressive.assignTextureLOD(material, level);
         }
-        return Promise.resolve(null);
     }
 
     /** Load progressive meshes for the given mesh
@@ -298,9 +299,6 @@ export class LODsManager {
             const originalGeometry = mesh.geometry;
             return NEEDLE_progressive.assignMeshLOD(mesh, level).then(res => {
                 if (res && mesh.userData.LOD == level && originalGeometry != mesh.geometry) {
-                    // update the lightmap
-                    // this.applyLightmapping();
-
                     // if (this.handles) {
                     //     for (const inst of this.handles) {
                     //         // if (inst["LOD"] < level) continue;
@@ -543,8 +541,8 @@ export class LODsManager {
 
         result.mesh_lod = mesh_level;
 
-        const maxTextureLOD = 4;
-        result.texture_lod = lerp(maxTextureLOD, 0, state.lastScreenCoverage * 2);
+        const maxTextureLOD = 6;
+        result.texture_lod = lerp(maxTextureLOD, 0, state.lastScreenCoverage * 3);
     }
 }
 
@@ -556,6 +554,7 @@ function lerp(a: number, b: number, t: number) {
 
 
 class LOD_state {
+    frames: number = 0;
     lastLodLevel_Mesh: number = 0;
     lasLodLevel_Texture: number = 0;
     lastScreenCoverage: number = 0;

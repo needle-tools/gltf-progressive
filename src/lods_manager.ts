@@ -371,15 +371,20 @@ export class LODsManager {
         // The mesh info contains also the density for all available LOD level so we can use this for selecting which level to show
         const mesh_lods_info = NEEDLE_progressive.getMeshLODInformation(mesh.geometry);
         const mesh_lods = mesh_lods_info?.lods;
+        const has_mesh_lods = mesh_lods && mesh_lods.length > 0;
 
-        // We can skip all this if we dont have any LOD information - we can ask the progressive extension for that
-        // But if the MESH has no LODs we might still have materials that do - we would need to check that
-        // Until we properly check if an object has *any* LODs we do return the best quality for now
-        if (!mesh_lods || mesh_lods.length <= 0) {
-            // TODO: we might want to check if the material has LODs
+        const texture_lods_minmax = NEEDLE_progressive.getMaterialMinMaxLODsCount(mesh.material);
+        const has_texture_lods = texture_lods_minmax?.min != Infinity && texture_lods_minmax.min > 0 && texture_lods_minmax.max > 0;
+
+        // We can skip all this if we dont have any LOD information
+        if (!has_mesh_lods && !has_texture_lods) {
             result.mesh_lod = 0;
             result.texture_lod = 0;
             return;
+        }
+
+        if (!has_mesh_lods) {
+            mesh_level = 0;
         }
 
         if (!this.cameraFrustrum?.intersectsObject(mesh)) {
@@ -543,10 +548,9 @@ export class LODsManager {
 
         result.mesh_lod = mesh_level;
 
-        const minMaxLods = NEEDLE_progressive.getMaterialMinMaxLODsCount(mesh.material);
-        if (minMaxLods?.min && minMaxLods.min > 0 && minMaxLods.max > 0) {
+        if (texture_lods_minmax?.min && texture_lods_minmax.min > 0 && texture_lods_minmax.max > 0) {
             const t = Math.min(1, Math.max(0, state.lastScreenCoverage * 3));
-            result.texture_lod = lerp(minMaxLods.max, 0, t);
+            result.texture_lod = lerp(texture_lods_minmax.max, 0, t);
         }
         else {
             result.texture_lod = 0;

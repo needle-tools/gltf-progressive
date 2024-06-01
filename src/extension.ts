@@ -198,12 +198,19 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * @param level the level of detail to check for (0 is the highest resolution). If undefined, the function checks if any LOD level is available
      * @returns true if the LOD level is available (or if any LOD level is available if level is undefined)
      */
-    static hasLODLevelAvailable(obj: Mesh | BufferGeometry | Texture | Material, level?: number): boolean {
+    static hasLODLevelAvailable(obj: Mesh | BufferGeometry | Texture | Material | Material[], level?: number): boolean {
+
+        if (Array.isArray(obj)) {
+            for (const mat of obj) {
+                if (this.hasLODLevelAvailable(mat, level)) return true;
+            }
+            return false;
+        }
 
         if ((obj as Material).isMaterial === true) {
             for (const slot of Object.keys(obj)) {
                 const val = obj[slot];
-                if ((val as Texture).isTexture) {
+                if (val && (val as Texture).isTexture) {
                     if (this.hasLODLevelAvailable(val, level)) return true;
                 }
             }

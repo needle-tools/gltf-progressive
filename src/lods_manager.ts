@@ -349,6 +349,12 @@ export class LODsManager {
             return;
         }
 
+        if (!camera) {
+            result.mesh_lod = -1;
+            result.texture_lod = -1;
+            return;
+        }
+
         // if this is using instancing we always load level 0
         // if (this.isInstancingActive) return 0;
 
@@ -357,191 +363,183 @@ export class LODsManager {
         const maxLevel = 10;
         let mesh_level = maxLevel + 1;
 
-        if (camera) {
-            if (debugProgressiveLoading && mesh["DEBUG:LOD"] != undefined) {
-                return mesh["DEBUG:LOD"];
+
+        if (debugProgressiveLoading && mesh["DEBUG:LOD"] != undefined) {
+            return mesh["DEBUG:LOD"];
+        }
+
+        // The mesh info contains also the density for all available LOD level so we can use this for selecting which level to show
+        const mesh_lods_info = NEEDLE_progressive.getMeshLODInformation(mesh.geometry);
+        const mesh_lods = mesh_lods_info?.lods;
+
+        // We can skip all this if we dont have any LOD information - we can ask the progressive extension for that
+        // But if the MESH has no LODs we might still have materials that do - we would need to check that
+        // Until we properly check if an object has *any* LODs we do return the best quality for now
+        if (!mesh_lods || mesh_lods.length <= 0) {
+            // TODO: we might want to check if the material has LODs
+            result.mesh_lod = 0;
+            result.texture_lod = 0;
+            return;
+        }
+
+        if (!this.cameraFrustrum?.intersectsObject(mesh)) {
+            // console.log("Mesh not visible");
+            // if (debugProgressiveLoading && mesh.geometry.boundingSphere) {
+            //     const bounds = mesh.geometry.boundingSphere;
+            //     this._sphere.copy(bounds);
+            //     this._sphere.applyMatrix4(mesh.matrixWorld);
+            //     Gizmos.DrawWireSphere(this._sphere.center, this._sphere.radius * 1.01, 0xff5555, .5);
+            // }
+            // the object is not visible by the camera
+            result.mesh_lod = 99;
+            result.texture_lod = 99;
+            return;
+        }
+
+        const boundingBox = mesh.geometry.boundingBox;
+        if (boundingBox && (camera as PerspectiveCamera).isPerspectiveCamera) {
+            const cam = camera as PerspectiveCamera;
+
+            // hack: if the mesh has vertex colors, has less than 100 vertices we always select the highest LOD
+            if (mesh.geometry.attributes.color && mesh.geometry.attributes.color.count < 100) {
+                if (mesh.geometry.boundingSphere) {
+                    this._sphere.copy(mesh.geometry.boundingSphere);
+                    this._sphere.applyMatrix4(mesh.matrixWorld);
+                    const worldPosition = camera.getWorldPosition(this._tempWorldPosition)
+                    if (this._sphere.containsPoint(worldPosition)) {
+                        result.mesh_lod = 0;
+                        result.texture_lod = 0;
+                        return;
+                    }
+                }
             }
 
-            // The mesh info contains also the density for all available LOD level so we can use this for selecting which level to show
-            const mesh_lods_info = NEEDLE_progressive.getMeshLODInformation(mesh.geometry);
-            const mesh_lods = mesh_lods_info?.lods;
+            // calculate size on screen
+            this._tempBox.copy(boundingBox);
+            this._tempBox.applyMatrix4(mesh.matrixWorld);
 
-            // We can skip all this if we dont have any LOD information - we can ask the progressive extension for that
-            // But if the MESH has no LODs we might still have materials that do - we would need to check that
-            // Until we properly check if an object has *any* LODs we do return the best quality for now
-            if (!mesh_lods || mesh_lods.length <= 0) {
+            // Converting into projection space has the disadvantage that objects further to the side
+            // will have a much larger coverage, especially with high-field-of-view situations like in VR.
+            // Alternatively, we could attempt to calculate angular coverage (some kind of polar coordinates maybe?)
+            // or introduce a correction factor based on "expected distortion" of the object.
+            // High distortions would lead to lower LOD levels.
+            // "Centrality" of the calculated screen-space bounding box could be a factor here –
+            // what's the distance of the bounding box to the center of the screen?
+            if (LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
                 result.mesh_lod = 0;
                 result.texture_lod = 0;
                 return;
             }
+            this._tempBox.applyMatrix4(this.projectionScreenMatrix);
 
-            if (!this.cameraFrustrum?.intersectsObject(mesh)) {
-                // console.log("Mesh not visible");
-                // if (debugProgressiveLoading && mesh.geometry.boundingSphere) {
-                //     const bounds = mesh.geometry.boundingSphere;
-                //     this._sphere.copy(bounds);
-                //     this._sphere.applyMatrix4(mesh.matrixWorld);
-                //     Gizmos.DrawWireSphere(this._sphere.center, this._sphere.radius * 1.01, 0xff5555, .5);
-                // }
-                // the object is not visible by the camera
-                result.mesh_lod = 99;
-                result.texture_lod = 99;
-                return;
+            // TODO might need to be adjusted for cameras that are rendered during an XR session but are 
+            // actually not XR cameras (e.g. a render texture)
+            if (this.renderer.xr.enabled && cam.fov > 70) {
+                // calculate centrality of the bounding box - how close is it to the screen center
+                const min = this._tempBox.min;
+                const max = this._tempBox.max;
+
+                let minX = min.x;
+                let minY = min.y;
+                let maxX = max.x;
+                let maxY = max.y;
+
+                // enlarge
+                const enlargementFactor = 2.0;
+                const centerBoost = 1.5;
+                const centerX = (min.x + max.x) * 0.5;
+                const centerY = (min.y + max.y) * 0.5;
+                minX = (minX - centerX) * enlargementFactor + centerX;
+                minY = (minY - centerY) * enlargementFactor + centerY;
+                maxX = (maxX - centerX) * enlargementFactor + centerX;
+                maxY = (maxY - centerY) * enlargementFactor + centerY;
+
+                const xCentrality = minX < 0 && maxX > 0 ? 0 : Math.min(Math.abs(min.x), Math.abs(max.x));
+                const yCentrality = minY < 0 && maxY > 0 ? 0 : Math.min(Math.abs(min.y), Math.abs(max.y));
+                const centrality = Math.max(xCentrality, yCentrality);
+
+                // heuristically determined to lower quality for objects at the edges of vision
+                state.lastCentrality = (centerBoost - centrality) * (centerBoost - centrality) * (centerBoost - centrality);
+            }
+            else {
+                state.lastCentrality = 1;
             }
 
-            const boundingBox = mesh.geometry.boundingBox;
-            if (boundingBox && (camera as PerspectiveCamera).isPerspectiveCamera) {
-                const cam = camera as PerspectiveCamera;
+            const boxSize = this._tempBox.getSize(this._tempBoxSize);
+            boxSize.multiplyScalar(0.5); // goes from -1..1, we want -0.5..0.5 for coverage in percent
+            if (screen.availHeight > 0)
+                boxSize.multiplyScalar(this.renderer.domElement.clientHeight / screen.availHeight); // correct for size of context on screen
+            boxSize.x *= cam.aspect;
 
-                // hack: if the mesh has vertex colors, has less than 100 vertices we always select the highest LOD
-                if (mesh.geometry.attributes.color && mesh.geometry.attributes.color.count < 100) {
-                    if (mesh.geometry.boundingSphere) {
-                        this._sphere.copy(mesh.geometry.boundingSphere);
-                        this._sphere.applyMatrix4(mesh.matrixWorld);
-                        const worldPosition = camera.getWorldPosition(this._tempWorldPosition)
-                        if (this._sphere.containsPoint(worldPosition)) {
-                            result.mesh_lod = 0;
-                            result.texture_lod = 0;
-                            return;
-                        }
+            const matView = camera.matrixWorldInverse;
+            const box2 = this._tempBox2;
+            box2.copy(boundingBox);
+            box2.applyMatrix4(mesh.matrixWorld);
+            box2.applyMatrix4(matView);
+            const boxSize2 = box2.getSize(this._tempBox2Size);
+
+            // approximate depth coverage in relation to screenspace size
+            const max2 = Math.max(boxSize2.x, boxSize2.y);
+            const max1 = Math.max(boxSize.x, boxSize.y);
+            if (max1 != 0 && max2 != 0)
+                boxSize.z = boxSize2.z / Math.max(boxSize2.x, boxSize2.y) * Math.max(boxSize.x, boxSize.y);
+
+            state.lastScreenCoverage = Math.max(boxSize.x, boxSize.y, boxSize.z);
+            state.lastScreenspaceVolume.copy(boxSize);
+            state.lastScreenCoverage *= state.lastCentrality;
+
+            // draw screen size box
+            if (debugProgressiveLoading && LODsManager.debugDrawLine) {
+                const mat = this.tempMatrix.copy(this.projectionScreenMatrix);
+                mat.invert();
+
+                const corner0 = LODsManager.corner0;
+                const corner1 = LODsManager.corner1;
+                const corner2 = LODsManager.corner2;
+                const corner3 = LODsManager.corner3;
+
+                // get box corners, transform with camera space, and draw as quad lines
+                corner0.copy(this._tempBox.min);
+                corner1.copy(this._tempBox.max);
+                corner1.x = corner0.x;
+                corner2.copy(this._tempBox.max);
+                corner2.y = corner0.y;
+                corner3.copy(this._tempBox.max);
+                // draw outlines at the center of the box
+                const z = (corner0.z + corner3.z) * 0.5;
+                // all outlines should have the same depth in screen space
+                corner0.z = corner1.z = corner2.z = corner3.z = z;
+
+                corner0.applyMatrix4(mat);
+                corner1.applyMatrix4(mat);
+                corner2.applyMatrix4(mat);
+                corner3.applyMatrix4(mat);
+
+                LODsManager.debugDrawLine(corner0, corner1, 0x0000ff);
+                LODsManager.debugDrawLine(corner0, corner2, 0x0000ff);
+                LODsManager.debugDrawLine(corner1, corner3, 0x0000ff);
+                LODsManager.debugDrawLine(corner2, corner3, 0x0000ff);
+            }
+
+            let expectedLevel = 999;
+            // const framerate = this.context.time.smoothedFps;
+            if (mesh_lods && state.lastScreenCoverage > 0) {
+                for (let l = 0; l < mesh_lods.length; l++) {
+                    const densityForThisLevel = mesh_lods[l].density;
+                    const resultingDensity = densityForThisLevel / state.lastScreenCoverage;
+                    if (resultingDensity < desiredDensity) {
+                        expectedLevel = l;
+                        break;
                     }
                 }
+            }
 
-                // calculate size on screen
-                this._tempBox.copy(boundingBox);
-                this._tempBox.applyMatrix4(mesh.matrixWorld);
-
-                // Converting into projection space has the disadvantage that objects further to the side
-                // will have a much larger coverage, especially with high-field-of-view situations like in VR.
-                // Alternatively, we could attempt to calculate angular coverage (some kind of polar coordinates maybe?)
-                // or introduce a correction factor based on "expected distortion" of the object.
-                // High distortions would lead to lower LOD levels.
-                // "Centrality" of the calculated screen-space bounding box could be a factor here –
-                // what's the distance of the bounding box to the center of the screen?
-                if (LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
-                    result.mesh_lod = 0;
-                    result.texture_lod = 0;
-                    return;
-                }
-                this._tempBox.applyMatrix4(this.projectionScreenMatrix);
-
-                // TODO might need to be adjusted for cameras that are rendered during an XR session but are 
-                // actually not XR cameras (e.g. a render texture)
-                if (this.renderer.xr.enabled && cam.fov > 70) {
-                    // calculate centrality of the bounding box - how close is it to the screen center
-                    const min = this._tempBox.min;
-                    const max = this._tempBox.max;
-
-                    let minX = min.x;
-                    let minY = min.y;
-                    let maxX = max.x;
-                    let maxY = max.y;
-
-                    // enlarge
-                    const enlargementFactor = 2.0;
-                    const centerBoost = 1.5;
-                    const centerX = (min.x + max.x) * 0.5;
-                    const centerY = (min.y + max.y) * 0.5;
-                    minX = (minX - centerX) * enlargementFactor + centerX;
-                    minY = (minY - centerY) * enlargementFactor + centerY;
-                    maxX = (maxX - centerX) * enlargementFactor + centerX;
-                    maxY = (maxY - centerY) * enlargementFactor + centerY;
-
-                    const xCentrality = minX < 0 && maxX > 0 ? 0 : Math.min(Math.abs(min.x), Math.abs(max.x));
-                    const yCentrality = minY < 0 && maxY > 0 ? 0 : Math.min(Math.abs(min.y), Math.abs(max.y));
-                    const centrality = Math.max(xCentrality, yCentrality);
-
-                    // heuristically determined to lower quality for objects at the edges of vision
-                    state.lastCentrality = (centerBoost - centrality) * (centerBoost - centrality) * (centerBoost - centrality);
-                }
-                else {
-                    state.lastCentrality = 1;
-                }
-
-                const boxSize = this._tempBox.getSize(this._tempBoxSize);
-                boxSize.multiplyScalar(0.5); // goes from -1..1, we want -0.5..0.5 for coverage in percent
-                if (screen.availHeight > 0)
-                    boxSize.multiplyScalar(this.renderer.domElement.clientHeight / screen.availHeight); // correct for size of context on screen
-                boxSize.x *= cam.aspect;
-
-                const matView = camera.matrixWorldInverse;
-                const box2 = this._tempBox2;
-                box2.copy(boundingBox);
-                box2.applyMatrix4(mesh.matrixWorld);
-                box2.applyMatrix4(matView);
-                const boxSize2 = box2.getSize(this._tempBox2Size);
-
-                // approximate depth coverage in relation to screenspace size
-                const max2 = Math.max(boxSize2.x, boxSize2.y);
-                const max1 = Math.max(boxSize.x, boxSize.y);
-                if (max1 != 0 && max2 != 0)
-                    boxSize.z = boxSize2.z / Math.max(boxSize2.x, boxSize2.y) * Math.max(boxSize.x, boxSize.y);
-
-                state.lastScreenCoverage = Math.max(boxSize.x, boxSize.y, boxSize.z);
-                state.lastScreenspaceVolume.copy(boxSize);
-                state.lastScreenCoverage *= state.lastCentrality;
-
-                // draw screen size box
-                if (debugProgressiveLoading && LODsManager.debugDrawLine) {
-                    const mat = this.tempMatrix.copy(this.projectionScreenMatrix);
-                    mat.invert();
-
-                    const corner0 = LODsManager.corner0;
-                    const corner1 = LODsManager.corner1;
-                    const corner2 = LODsManager.corner2;
-                    const corner3 = LODsManager.corner3;
-
-                    // get box corners, transform with camera space, and draw as quad lines
-                    corner0.copy(this._tempBox.min);
-                    corner1.copy(this._tempBox.max);
-                    corner1.x = corner0.x;
-                    corner2.copy(this._tempBox.max);
-                    corner2.y = corner0.y;
-                    corner3.copy(this._tempBox.max);
-                    // draw outlines at the center of the box
-                    const z = (corner0.z + corner3.z) * 0.5;
-                    // all outlines should have the same depth in screen space
-                    corner0.z = corner1.z = corner2.z = corner3.z = z;
-
-                    corner0.applyMatrix4(mat);
-                    corner1.applyMatrix4(mat);
-                    corner2.applyMatrix4(mat);
-                    corner3.applyMatrix4(mat);
-
-                    LODsManager.debugDrawLine(corner0, corner1, 0x0000ff);
-                    LODsManager.debugDrawLine(corner0, corner2, 0x0000ff);
-                    LODsManager.debugDrawLine(corner1, corner3, 0x0000ff);
-                    LODsManager.debugDrawLine(corner2, corner3, 0x0000ff);
-                }
-
-                let expectedLevel = 999;
-                // const framerate = this.context.time.smoothedFps;
-                if (mesh_lods && state.lastScreenCoverage > 0) {
-                    for (let l = 0; l < mesh_lods.length; l++) {
-                        const densityForThisLevel = mesh_lods[l].density;
-                        const resultingDensity = densityForThisLevel / state.lastScreenCoverage;
-                        if (resultingDensity < desiredDensity) {
-                            expectedLevel = l;
-                            break;
-                        }
-                    }
-                }
-
-                const isLowerLod = expectedLevel < mesh_level;
-                if (isLowerLod) {
-                    mesh_level = expectedLevel;
-                }
+            const isLowerLod = expectedLevel < mesh_level;
+            if (isLowerLod) {
+                mesh_level = expectedLevel;
             }
         }
 
-
-        // if (this._lastLodLevel != level) {
-        //     this._nextLodTestTime = this.context.time.realtimeSinceStartup + .5;
-        //     if (debugProgressiveLoading) {
-        //         if (debugProgressiveLoading == "verbose") console.warn(`LOD Level changed from ${this._lastLodLevel} to ${level} for ${this.name}`);
-        //         this.drawGizmoLodLevel(true);
-        //     }
-        // }
 
         result.mesh_lod = mesh_level;
 

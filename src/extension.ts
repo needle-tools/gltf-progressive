@@ -146,6 +146,53 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
+    static getMaterialMinMaxLODsCount(material: Material | Material[], minmax: { min: number, max: number } = { min: Infinity, max: -1 }): { min: number, max: number } {
+
+        if (Array.isArray(material)) {
+            for (const mat of material) {
+                this.getMaterialMinMaxLODsCount(mat, minmax);
+            }
+            return minmax;
+        }
+
+        let min = minmax.min;
+        let max = minmax.max;
+        if (material.type === "ShaderMaterial" || material.type === "RawShaderMaterial") {
+            const mat = material as ShaderMaterial;
+            for (const slot of Object.keys(mat.uniforms)) {
+                const val = mat.uniforms[slot].value as Texture;
+                if (val?.isTexture === true) {
+                    const info = this.getAssignedLODInformation(val);
+                    if (info) {
+                        const model = this.lodInfos.get(info.key);
+                        if (model && model.lods) {
+                            min = Math.min(min, model.lods.length);
+                            max = Math.max(max, model.lods.length);
+                        }
+                    }
+                }
+            }
+        }
+        else if (material.isMaterial) {
+            for (const slot of Object.keys(material)) {
+                const val = material[slot] as Texture;
+                if (val?.isTexture === true) {
+                    const info = this.getAssignedLODInformation(val);
+                    if (info) {
+                        const model = this.lodInfos.get(info.key);
+                        if (model && model.lods) {
+                            min = Math.min(min, model.lods.length);
+                            max = Math.max(max, model.lods.length);
+                        }
+                    }
+                }
+            }
+        }
+        minmax.min = min;
+        minmax.max = max;
+        return minmax;
+    }
+
     /** Check if a LOD level is available for a mesh or a texture
      * @param obj the mesh or texture to check
      * @param level the level of detail to check for (0 is the highest resolution). If undefined, the function checks if any LOD level is available

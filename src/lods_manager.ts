@@ -162,6 +162,10 @@ export class LODsManager {
                 updateLODs = false;
             }
         }
+        // don't update LODs for cube map rendering cameras
+        if (camera.parent && camera.parent.type === "CubeCamera") {
+            updateLODs = false;
+        }
 
         if (updateLODs) {
             if (suppressProgressiveLoading) return;
@@ -207,21 +211,21 @@ export class LODsManager {
 
                 const object = entry.object as any;
                 if (object instanceof Mesh || (object.isMesh)) {
-                    this.updateLODs(scene, camera, object, desiredDensity);
+                    this.updateLODs(scene, camera, object, desiredDensity, frame);
                 }
             }
             const transparent = renderList.transparent;
             for (const entry of transparent) {
                 const object = entry.object as any;
                 if (object instanceof Mesh || (object.isMesh)) {
-                    this.updateLODs(scene, camera, object, desiredDensity);
+                    this.updateLODs(scene, camera, object, desiredDensity, frame);
                 }
             }
         }
     }
 
     /** Update the LOD levels for the renderer. */
-    private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number) {
+    private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number, frame: number) {
 
         let state = object.userData.LOD_state as LOD_state;
         if (!state) {
@@ -541,8 +545,14 @@ export class LODsManager {
 
         result.mesh_lod = mesh_level;
 
-        const maxTextureLOD = 6;
-        result.texture_lod = lerp(maxTextureLOD, 0, state.lastScreenCoverage * 3);
+        const minMaxLods = NEEDLE_progressive.getMaterialMinMaxLODsCount(mesh.material);
+        if (minMaxLods?.min && minMaxLods.min > 0 && minMaxLods.max > 0) {
+            const t = Math.min(1, Math.max(0, state.lastScreenCoverage * 3));
+            result.texture_lod = lerp(minMaxLods.max, 0, t);
+        }
+        else {
+            result.texture_lod = 0;
+        }
     }
 }
 

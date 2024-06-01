@@ -804,20 +804,28 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return res?.userData?.LODS || null;
     }
 
-    private static readonly _copiedTextures: WeakMap<Texture, Texture> = new Map();
+    // private static readonly _copiedTextures: WeakMap<Texture, Texture> = new Map();
 
     private static copySettings(source: Texture, target: Texture): Texture {
+        // const existingCopy = source["LODS:COPY"];
         // don't copy again if the texture was processed before
-        const existingClone = this._copiedTextures.get(target);
-        if (existingClone) {
-            return existingClone;
-        }
+        // we clone the source if it's animated
+        // const existingClone = this._copiedTextures.get(source);
+        // if (existingClone) {
+        //     return existingClone;
+        // }
         // We need to clone e.g. when the same texture is used multiple times (but with e.g. different wrap settings)
         // This is relatively cheap since it only stores settings
         // This should only happen once ever for every texture
-        const original = target;
-        target = target.clone();
-        this._copiedTextures.set(original, target);
+        // const original = target;
+        {
+            target = target.clone();
+            if (debug) console.warn("Copying texture settings\n", source.uuid, "\n", target.uuid);
+        }
+        // else {
+        //     source = existingCopy;
+        // }
+        // this._copiedTextures.set(original, target);
         // we re-use the offset and repeat settings because it might be animated
         target.offset = source.offset;
         target.repeat = source.repeat;
@@ -829,6 +837,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         target.flipY = source.flipY;
         target.anisotropy = source.anisotropy;
         target.generateMipmaps = source.generateMipmaps;
+        // if (!target.userData) target.userData = {};
+        // target["LODS:COPY"] = source;
         // related: NE-4937
         return target;
 

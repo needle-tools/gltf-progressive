@@ -5,6 +5,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { addDracoAndKTX2Loaders, createLoaders } from "./loaders.js";
 import { NEEDLE_progressive } from "./extension.js";
 import { LODsManager } from "./lods_manager.js";
+import { loadKTX2Header } from "./ktx_helper.js";
+
+loadKTX2Header("https://raw.githubusercontent.com/donmccurdy/KTX2-Samples/main/ktx2/2d_etc1s.ktx2").catch(console.error);
 
 export * from "./extension.js"
 export * from "./plugins/index.js"

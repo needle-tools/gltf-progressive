@@ -843,7 +843,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         target.wrapT = source.wrapT;
         target.flipY = source.flipY;
         target.anisotropy = source.anisotropy;
-        target.generateMipmaps = source.generateMipmaps;
+        if (!target.mipmaps)
+            target.generateMipmaps = source.generateMipmaps;
         // if (!target.userData) target.userData = {};
         // target["LODS:COPY"] = source;
         // related: NE-4937

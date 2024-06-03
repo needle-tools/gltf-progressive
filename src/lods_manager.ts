@@ -283,8 +283,20 @@ export class LODsManager {
             }
             return;
         }
-        if (material.userData && (material.userData.LOD == undefined || material.userData.LOD > level)) {
-            material.userData.LOD = level;
+
+        const LOD_material = material as Material & { NEEDLE_LOD?: number };
+
+        // Check if the material LOD was already updated to a certain level
+        // We don't use the userData here because we want to re-run assigning textures if the material has been cloned
+        let update = false;
+        if (LOD_material.NEEDLE_LOD == undefined) {
+            update = true;
+        }
+        else if (level < LOD_material.NEEDLE_LOD) {
+            update = true;
+        }
+        if (update) {
+            LOD_material.NEEDLE_LOD = level;
             NEEDLE_progressive.assignTextureLOD(material, level);
         }
     }

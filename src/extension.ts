@@ -90,7 +90,10 @@ declare type NEEDLE_progressive_model = {
 }
 
 export declare type NEEDLE_progressive_texture_model = NEEDLE_progressive_model & {
-
+    lods: Array<NEEDLE_progressive_model_LOD & {
+        width: number,
+        height: number,
+    }>
 }
 export declare type NEEDLE_progressive_mesh_model = NEEDLE_progressive_model & {
     density: number;
@@ -114,6 +117,15 @@ export declare type ProgressiveMaterialTextureLoadingResult = {
     texture: Texture | null;
     /** the level of detail that was loaded */
     level: number;
+}
+
+declare type TextureLODsMinMaxInfo = {
+    min_count: number;
+    max_count: number;
+    // min_width: number;
+    // max_width: number;
+    // min_height: number;
+    // max_height: number;
 }
 
 /**
@@ -146,8 +158,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    static getMaterialMinMaxLODsCount(material: Material | Material[], minmax: { min: number, max: number } = { min: Infinity, max: -1 }): { min: number, max: number } {
-
+    static getMaterialMinMaxLODsCount(material: Material | Material[],
+        minmax: TextureLODsMinMaxInfo = {
+            min_count: Infinity,
+            max_count: -1,
+            // min_width: Infinity,
+            // max_width: -1,
+            // min_height: Infinity,
+            // max_height: -1,
+        }):
+        TextureLODsMinMaxInfo {
         if (Array.isArray(material)) {
             for (const mat of material) {
                 this.getMaterialMinMaxLODsCount(mat, minmax);
@@ -155,19 +175,28 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return minmax;
         }
 
-        let min = minmax.min;
-        let max = minmax.max;
+        // TODO: we can cache this material min max data because it wont change at runtime
+
+
         if (material.type === "ShaderMaterial" || material.type === "RawShaderMaterial") {
             const mat = material as ShaderMaterial;
             for (const slot of Object.keys(mat.uniforms)) {
                 const val = mat.uniforms[slot].value as Texture;
                 if (val?.isTexture === true) {
-                    const info = this.getAssignedLODInformation(val);
+                    const info = this.getAssignedLODInformation(val)
                     if (info) {
-                        const model = this.lodInfos.get(info.key);
+                        const model = this.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
                         if (model && model.lods) {
-                            min = Math.min(min, model.lods.length);
-                            max = Math.max(max, model.lods.length);
+                            minmax.min_count = Math.min(minmax.min_count, model.lods.length);
+                            minmax.max_count = Math.max(minmax.max_count, model.lods.length);
+                            // for (const lod of model.lods) {
+                            //     if (lod.width) {
+                            //         minmax.min_width = Math.min(minmax.min_width, lod.width);
+                            //         minmax.max_width = Math.max(minmax.max_width, lod.width);
+                            //         minmax.min_height = Math.min(minmax.min_height, lod.height);
+                            //         minmax.max_height = Math.max(minmax.max_height, lod.height);
+                            //     }
+                            // }
                         }
                     }
                 }
@@ -179,17 +208,25 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 if (val?.isTexture === true) {
                     const info = this.getAssignedLODInformation(val);
                     if (info) {
-                        const model = this.lodInfos.get(info.key);
+                        const model = this.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
                         if (model && model.lods) {
-                            min = Math.min(min, model.lods.length);
-                            max = Math.max(max, model.lods.length);
+                            minmax.min_count = Math.min(minmax.min_count, model.lods.length);
+                            minmax.max_count = Math.max(minmax.max_count, model.lods.length);
+                            // for (const lod of model.lods) {
+                            //     if (lod.width) {
+                            //         minmax.min_width = Math.min(minmax.min_width, lod.width);
+                            //         minmax.max_width = Math.max(minmax.max_width, lod.width);
+                            //         minmax.min_height = Math.min(minmax.min_height, lod.height);
+                            //         minmax.max_height = Math.max(minmax.max_height, lod.height);
+                            //     }
+                            // }
                         }
                     }
                 }
             }
         }
-        minmax.min = min;
-        minmax.max = max;
+
+
         return minmax;
     }
 

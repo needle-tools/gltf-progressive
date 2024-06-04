@@ -386,7 +386,7 @@ export class LODsManager {
         const has_mesh_lods = mesh_lods && mesh_lods.length > 0;
 
         const texture_lods_minmax = NEEDLE_progressive.getMaterialMinMaxLODsCount(mesh.material);
-        const has_texture_lods = texture_lods_minmax?.min != Infinity && texture_lods_minmax.min > 0 && texture_lods_minmax.max > 0;
+        const has_texture_lods = texture_lods_minmax?.min_count != Infinity && texture_lods_minmax.min_count > 0 && texture_lods_minmax.max_count > 0;
 
         // We can skip all this if we dont have any LOD information
         if (!has_mesh_lods && !has_texture_lods) {
@@ -560,9 +560,9 @@ export class LODsManager {
 
         result.mesh_lod = mesh_level;
 
-        if (texture_lods_minmax?.min && texture_lods_minmax.min > 0 && texture_lods_minmax.max > 0) {
+        if (has_texture_lods) {
             const t = Math.min(1, Math.max(0, state.lastScreenCoverage * 3));
-            result.texture_lod = lerp(texture_lods_minmax.max, 0, t);
+            result.texture_lod = lerp(texture_lods_minmax.max_count, 0, t);
         }
         else {
             result.texture_lod = 0;

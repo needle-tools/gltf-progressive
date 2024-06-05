@@ -569,12 +569,12 @@ export class LODsManager {
                 const factor = state.lastScreenCoverage * 1.5;
                 const screenSize = this.renderer.domElement.clientHeight / window.devicePixelRatio;
                 const pixelSizeOnScreen = screenSize * factor;
-                for (let i = texture_lods_minmax.lods.length-1; i >= 0; i--) {
+                for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {
                     const lod = texture_lods_minmax.lods[i];
                     if (lod.max_height > pixelSizeOnScreen) {
                         result.texture_lod = i;
-                        if(result.texture_lod < state.lastLodLevel_Texture){
-                            console.log("Texture LOD changed", state.lastLodLevel_Texture, " -> ", result.texture_lod, lod.max_height);
+                        if (result.texture_lod < state.lastLodLevel_Texture) {
+                            if(debugProgressiveLoading) console.log(`Texture LOD changed ${state.lastLodLevel_Texture} → ${result.texture_lod} (${lod.max_height}px: ${(100*state.lastScreenCoverage).toFixed(2)} % = ${pixelSizeOnScreen.toFixed(0)}px) - ${mesh.name}`);
                         }
                         break;
                     }

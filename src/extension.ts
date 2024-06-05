@@ -436,7 +436,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         if (assigned) {
                             const assignedLOD = this.getAssignedLODInformation(assigned);
                             if (assignedLOD && assignedLOD?.level < level) {
-                                if (debug === "verbose") console.log("Assigned texture level is already higher: ", assignedLOD.level, level, assigned, tex);
+                                if (debug === "verbose")
+                                    console.warn("Assigned texture level is already higher: ", assignedLOD.level, level, material, assigned, tex);
                                 return null;
                             }
                             // assigned.dispose();
@@ -518,7 +519,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             const val = this.parser.associations.get(key) as { textures: number };
                             if (val.textures === index) {
                                 found = true;
-                                NEEDLE_progressive.registerTexture(this.url, key as Texture, index, ext);
+                                NEEDLE_progressive.registerTexture(this.url, key as Texture, ext.lods.length, index, ext);
                             }
                         }
                     }
@@ -526,7 +527,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (!found) {
                         this.parser.getDependency("texture", index).then(tex => {
                             if (tex) {
-                                NEEDLE_progressive.registerTexture(this.url, tex as Texture, index, ext);
+                                NEEDLE_progressive.registerTexture(this.url, tex as Texture, ext.lods.length, index, ext);
                             }
                         });
                     }
@@ -567,14 +568,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     /**
      * Register a texture with LOD information
      */
-    static registerTexture = (url: string, tex: Texture, index: number, ext: NEEDLE_progressive_texture_model) => {
+    static registerTexture = (url: string, tex: Texture, level: number, index: number, ext: NEEDLE_progressive_texture_model) => {
         if (debug) console.log("> Progressive: register texture", index, tex.name, tex.uuid, tex, ext);
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
         // see https://github.com/needle-tools/needle-engine-support/issues/133
         if (tex.source)
             tex.source[$progressiveTextureExtension] = ext;
         const LODKEY = ext.guid;
-        NEEDLE_progressive.assignLODInformation(url, tex, LODKEY, 0, 0, undefined);
+        NEEDLE_progressive.assignLODInformation(url, tex, LODKEY, level, index, undefined);
         NEEDLE_progressive.lodInfos.set(LODKEY, ext);
         NEEDLE_progressive.lowresCache.set(LODKEY, tex);
     };

@@ -564,6 +564,10 @@ export class LODsManager {
             // If this is the first time a texture LOD is requested we want to get the highest LOD to not display the minimal resolution that the root glTF contains as long while we wait for loading of e.g. the 8k LOD 0 texture
             if (state.lastLodLevel_Texture < 0) {
                 result.texture_lod = texture_lods_minmax.max_count - 1;
+                if (debugProgressiveLoading) {
+                    const level = texture_lods_minmax.lods[texture_lods_minmax.max_count - 1];
+                    if(debugProgressiveLoading) console.log(`First Texture LOD ${result.texture_lod} (${level.max_height}px) - ${mesh.name}`);
+                }
             }
             else {
                 const factor = state.lastScreenCoverage * 1.5;
@@ -574,7 +578,7 @@ export class LODsManager {
                     if (lod.max_height > pixelSizeOnScreen) {
                         result.texture_lod = i;
                         if (result.texture_lod < state.lastLodLevel_Texture) {
-                            if(debugProgressiveLoading) console.log(`Texture LOD changed ${state.lastLodLevel_Texture} → ${result.texture_lod} (${lod.max_height}px: ${(100*state.lastScreenCoverage).toFixed(2)} % = ${pixelSizeOnScreen.toFixed(0)}px) - ${mesh.name}`);
+                            if (debugProgressiveLoading) console.log(`Texture LOD changed ${state.lastLodLevel_Texture} → ${result.texture_lod} (${lod.max_height}px: ${(100 * state.lastScreenCoverage).toFixed(2)} % = ${pixelSizeOnScreen.toFixed(0)}px) - ${mesh.name}`);
                         }
                         break;
                     }

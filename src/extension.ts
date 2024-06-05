@@ -459,6 +459,22 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         this.url = url;
     }
 
+
+    private _isLoadingMesh;
+    loadMesh = (meshIndex: number) => {
+        if (this._isLoadingMesh) return null;
+        const ext = this.parser.json.meshes[meshIndex]?.extensions?.[EXTENSION_NAME] as NEEDLE_progressive_mesh_model;
+        if (!ext) return null;
+        this._isLoadingMesh = true;
+        return this.parser.getDependency("mesh", meshIndex).then(mesh => {
+            this._isLoadingMesh = false;
+            if (mesh) {
+                NEEDLE_progressive.registerMesh(this.url, ext.guid, mesh as Mesh, ext.lods.length, undefined, ext);
+            }
+            return mesh;
+        });
+    }
+
     afterRoot(gltf: GLTF): null {
         if (debug)
             console.log("AFTER", this.url, gltf);
@@ -468,7 +484,6 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const ext: NEEDLE_progressive_texture_model = textureInfo?.extensions[EXTENSION_NAME];
                 if (ext) {
                     let found = false;
-                    // TODO: why are sometimes textures not in the associations array when using r3f glTF loader...
                     for (const key of this.parser.associations.keys()) {
                         if ((key as Texture).isTexture === true) {
                             const val = this.parser.associations.get(key) as { textures: number };
@@ -478,8 +493,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             }
                         }
                     }
+                    // If textures aren't used there are no associations - we still want to register the LOD info so we create one instance
                     if (!found) {
-                        // see TODO above, fallback for when textures are not in the associations array
                         this.parser.getDependency("texture", index).then(tex => {
                             if (tex) {
                                 NEEDLE_progressive.registerTexture(this.url, tex as Texture, index, ext);
@@ -493,14 +508,25 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             if (meshInfo?.extensions) {
                 const ext = meshInfo?.extensions[EXTENSION_NAME] as NEEDLE_progressive_mesh_model;
                 if (ext && ext.lods) {
+                    let found = false;
                     for (const entry of this.parser.associations.keys()) {
                         if ((entry as Mesh).isMesh) {
                             const val = this.parser.associations.get(entry) as { meshes: number, primitives: number };
                             if (val.meshes === index) {
+                                found = true;
                                 NEEDLE_progressive.registerMesh(this.url, ext.guid, entry as Mesh, ext.lods.length, val.primitives, ext);
                             }
                         }
                     }
+                    // Note: we use loadMesh rather than this method so the mesh is surely registered at the right time when the mesh is created
+                    // // If meshes aren't used there are no associations - we still want to register the LOD info so we create one instance
+                    // if (!found) {
+                    //     this.parser.getDependency("mesh", index).then(mesh => {
+                    //         if (mesh) {
+                    //             NEEDLE_progressive.registerMesh(this.url, ext.guid, mesh as Mesh, ext.lods.length, undefined, ext);
+                    //         }
+                    //     });
+                    // }
 
                 }
             }

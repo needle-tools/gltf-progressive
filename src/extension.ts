@@ -122,10 +122,7 @@ export declare type ProgressiveMaterialTextureLoadingResult = {
 declare type TextureLODsMinMaxInfo = {
     min_count: number;
     max_count: number;
-    // min_width: number;
-    // max_width: number;
-    // min_height: number;
-    // max_height: number;
+    lods: Array<{ min_height: number, max_height: number }>,
 }
 
 /**
@@ -158,47 +155,58 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    static getMaterialMinMaxLODsCount(material: Material | Material[],
-        minmax: TextureLODsMinMaxInfo = {
-            min_count: Infinity,
-            max_count: -1,
-            // min_width: Infinity,
-            // max_width: -1,
-            // min_height: Infinity,
-            // max_height: -1,
-        }):
+    static getMaterialMinMaxLODsCount(material: Material | Material[], minmax?: TextureLODsMinMaxInfo):
         TextureLODsMinMaxInfo {
+
+        // we can cache this material min max data because it wont change at runtime
+        const cacheKey = "LODS:minmax"
+        const cached = material[cacheKey];
+        if (cached != undefined) return cached;
+
+        if (!minmax) {
+            minmax = {
+                min_count: Infinity,
+                max_count: 0,
+                lods: [],
+            };
+        }
+
+
         if (Array.isArray(material)) {
             for (const mat of material) {
                 this.getMaterialMinMaxLODsCount(mat, minmax);
             }
+            material[cacheKey] = minmax;
             return minmax;
         }
 
-        // TODO: we can cache this material min max data because it wont change at runtime
+        if(debug === "verbose") console.log("getMaterialMinMaxLODsCount", material);
 
+        const processTexture = (tex: Texture) => {
+            const info = this.getAssignedLODInformation(tex)
+            if (info) {
+                const model = this.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
+                if (model && model.lods) {
+                    minmax.min_count = Math.min(minmax.min_count, model.lods.length);
+                    minmax.max_count = Math.max(minmax.max_count, model.lods.length);
+                    for (let i = 0; i < model.lods.length; i++) {
+                        const lod = model.lods[i];
+                        if (lod.width) {
+                            minmax.lods[i] = minmax.lods[i] || { min_height: Infinity, max_height: 0 };
+                            minmax.lods[i].min_height = Math.min(minmax.lods[i].min_height, lod.height);
+                            minmax.lods[i].max_height = Math.max(minmax.lods[i].max_height, lod.height);
+                        }
+                    }
+                }
+            }
+        }
 
         if (material.type === "ShaderMaterial" || material.type === "RawShaderMaterial") {
             const mat = material as ShaderMaterial;
             for (const slot of Object.keys(mat.uniforms)) {
                 const val = mat.uniforms[slot].value as Texture;
                 if (val?.isTexture === true) {
-                    const info = this.getAssignedLODInformation(val)
-                    if (info) {
-                        const model = this.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
-                        if (model && model.lods) {
-                            minmax.min_count = Math.min(minmax.min_count, model.lods.length);
-                            minmax.max_count = Math.max(minmax.max_count, model.lods.length);
-                            // for (const lod of model.lods) {
-                            //     if (lod.width) {
-                            //         minmax.min_width = Math.min(minmax.min_width, lod.width);
-                            //         minmax.max_width = Math.max(minmax.max_width, lod.width);
-                            //         minmax.min_height = Math.min(minmax.min_height, lod.height);
-                            //         minmax.max_height = Math.max(minmax.max_height, lod.height);
-                            //     }
-                            // }
-                        }
-                    }
+                    processTexture(val);
                 }
             }
         }
@@ -206,26 +214,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             for (const slot of Object.keys(material)) {
                 const val = material[slot] as Texture;
                 if (val?.isTexture === true) {
-                    const info = this.getAssignedLODInformation(val);
-                    if (info) {
-                        const model = this.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
-                        if (model && model.lods) {
-                            minmax.min_count = Math.min(minmax.min_count, model.lods.length);
-                            minmax.max_count = Math.max(minmax.max_count, model.lods.length);
-                            // for (const lod of model.lods) {
-                            //     if (lod.width) {
-                            //         minmax.min_width = Math.min(minmax.min_width, lod.width);
-                            //         minmax.max_width = Math.max(minmax.max_width, lod.width);
-                            //         minmax.min_height = Math.min(minmax.min_height, lod.height);
-                            //         minmax.max_height = Math.max(minmax.max_height, lod.height);
-                            //     }
-                            // }
-                        }
-                    }
+                    processTexture(val);
                 }
             }
         }
 
+        material[cacheKey] = minmax;
 
         return minmax;
     }
@@ -423,33 +417,35 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null): Promise<Texture | null> {
         if (current?.isTexture !== true) return Promise.resolve(null);
 
-        // if (debug) console.log("-----------\n", "FIND", material?.name, slot, current?.name, current?.userData, current, material);
         if (slot === "glyphMap") {
             return Promise.resolve(current);
         }
 
         // save which texture level was requested last
-        const key = "LOD:requested level:" + slot;
-        if (material) material[key] = level;
+        const requestedLevelKey = `LOD:requested level:${slot}`;
+        const currentLevelKey = `LOD:current level:${slot}`;
+        if (material) {
+            material[requestedLevelKey] = level;
+        }
 
         return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
 
             // check if the requested level has changed in the meantime
-            if (material && material[key] != level) return null;
-            // if (material) delete material[key];
+            if (material && material[currentLevelKey] != undefined && material[currentLevelKey] < level) {
+                return null;
+            }
 
             // this can currently not happen
             if (Array.isArray(tex)) return null;
 
             if (tex?.isTexture === true) {
                 if (tex != current) {
-                    // if (debug) console.warn("Assign LOD", material?.name, slot, tex.name, tex["guid"], material, "Prev:", current, "Now:", tex, "\n--------------");
-
-                    // tex.needsUpdate = true;
 
                     if (material && slot) {
+                        const assigned = material[slot] as Texture;
+                        assigned.dispose();
+                        material[currentLevelKey] = level;
                         material[slot] = tex;
-                        // material.needsUpdate = true;
                     }
 
                     if (debug && slot && material) {

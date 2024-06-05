@@ -265,7 +265,7 @@ export class LODsManager {
         }
 
         state.lastLodLevel_Mesh = levels.mesh_lod;
-        state.lasLodLevel_Texture = levels.texture_lod;
+        state.lastLodLevel_Texture = levels.texture_lod;
     }
 
 
@@ -561,8 +561,27 @@ export class LODsManager {
         result.mesh_lod = mesh_level;
 
         if (has_texture_lods) {
-            const t = Math.min(1, Math.max(0, state.lastScreenCoverage * 3));
-            result.texture_lod = lerp(texture_lods_minmax.max_count, 0, t);
+            // If this is the first time a texture LOD is requested we want to get the highest LOD to not display the minimal resolution that the root glTF contains as long while we wait for loading of e.g. the 8k LOD 0 texture
+            if (state.lastLodLevel_Texture < 0) {
+                result.texture_lod = texture_lods_minmax.max_count - 1;
+            }
+            else {
+                const factor = state.lastScreenCoverage * 1.5;
+                const screenSize = this.renderer.domElement.clientHeight / window.devicePixelRatio;
+                const pixelSizeOnScreen = screenSize * factor;
+                for (let i = texture_lods_minmax.lods.length-1; i >= 0; i--) {
+                    const lod = texture_lods_minmax.lods[i];
+                    if (lod.max_height > pixelSizeOnScreen) {
+                        result.texture_lod = i;
+                        if(result.texture_lod < state.lastLodLevel_Texture){
+                            console.log("Texture LOD changed", state.lastLodLevel_Texture, " -> ", result.texture_lod, lod.max_height);
+                        }
+                        break;
+                    }
+                }
+                // const t = Math.min(1, Math.max(0, state.lastScreenCoverage * 1.1));
+                // result.texture_lod = lerp(texture_lods_minmax.max_count, 0, t);
+            }
         }
         else {
             result.texture_lod = 0;
@@ -579,8 +598,8 @@ function lerp(a: number, b: number, t: number) {
 
 class LOD_state {
     frames: number = 0;
-    lastLodLevel_Mesh: number = 0;
-    lasLodLevel_Texture: number = 0;
+    lastLodLevel_Mesh: number = -1;
+    lastLodLevel_Texture: number = -1;
     lastScreenCoverage: number = 0;
     readonly lastScreenspaceVolume: Vector3 = new Vector3();
     lastCentrality: number = 0;

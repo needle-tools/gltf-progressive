@@ -421,19 +421,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return Promise.resolve(current);
         }
 
-        // save which texture level was requested last
-        const requestedLevelKey = `LOD:requested level:${slot}`;
-        const currentLevelKey = `LOD:current level:${slot}`;
-        if (material) {
-            material[requestedLevelKey] = level;
-        }
-
         return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
-
-            // check if the requested level has changed in the meantime
-            if (material && material[currentLevelKey] != undefined && material[currentLevelKey] < level) {
-                return null;
-            }
 
             // this can currently not happen
             if (Array.isArray(tex)) return null;
@@ -443,8 +431,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
                     if (material && slot) {
                         const assigned = material[slot] as Texture;
-                        assigned.dispose();
-                        material[currentLevelKey] = level;
+                        // Check if the assigned texture LOD is higher quality than the current LOD
+                        // This is necessary for cases where e.g. a texture is updated via an explicit call to assignTextureLOD
+                        if (assigned) {
+                            const assignedLOD = this.getAssignedLODInformation(assigned);
+                            if (assignedLOD && assignedLOD?.level < level) {
+                                if (debug === "verbose") console.log("Assigned texture level is already higher: ", assignedLOD.level, level, assigned, tex);
+                                return null;
+                            }
+                            // assigned.dispose();
+                        }
                         material[slot] = tex;
                     }
 

@@ -12,7 +12,7 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 200);
 
 
 window.addEventListener('resize', () => {
@@ -59,6 +59,7 @@ new EXRLoader().load(environmentTextureUrl, texture => {
 const modelUrls = [
     "https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb",
     "https://engine.needle.tools/demos/gltf-progressive/assets/robot/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/vase/model.glb",
     "https://engine.needle.tools/demos/gltf-progressive/assets/jupiter_und_ganymed/model.glb",
     "https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb",
 ]
@@ -91,7 +92,7 @@ function loadScene() {
         currentScene?.removeFromParent();
         currentScene = gltf.scene;
         scene.add(gltf.scene)
-        gltf.scene.position.y += .1;
+        gltf.scene.position.y += .01;
 
         // the church is huge - scaling it down so we don't have a big difference between the models
         if (url.includes("church")) {

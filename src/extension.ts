@@ -59,7 +59,7 @@ if (debug) {
             if (debug_materials) {
                 debug_materials.forEach(mat => {
                     // we don't want to change the skybox material
-                    if(mat.name == "BackgroundCubeMaterial") return;
+                    if (mat.name == "BackgroundCubeMaterial") return;
                     if ("wireframe" in mat)
                         mat.wireframe = wireframe;
                 });
@@ -157,6 +157,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
     static getMaterialMinMaxLODsCount(material: Material | Material[], minmax?: TextureLODsMinMaxInfo):
         TextureLODsMinMaxInfo {
+        const self = this;
 
         // we can cache this material min max data because it wont change at runtime
         const cacheKey = "LODS:minmax"
@@ -180,12 +181,34 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return minmax;
         }
 
-        if(debug === "verbose") console.log("getMaterialMinMaxLODsCount", material);
+        if (debug === "verbose") console.log("getMaterialMinMaxLODsCount", material);
 
-        const processTexture = (tex: Texture) => {
-            const info = this.getAssignedLODInformation(tex)
+        if (material.type === "ShaderMaterial" || material.type === "RawShaderMaterial") {
+            const mat = material as ShaderMaterial;
+            for (const slot of Object.keys(mat.uniforms)) {
+                const val = mat.uniforms[slot].value as Texture;
+                if (val?.isTexture === true) {
+                    processTexture(val, minmax);
+                }
+            }
+        }
+        else if (material.isMaterial) {
+            for (const slot of Object.keys(material)) {
+                const val = material[slot] as Texture;
+                if (val?.isTexture === true) {
+                    processTexture(val, minmax);
+                }
+            }
+        }
+
+
+        material[cacheKey] = minmax;
+        return minmax;
+
+        function processTexture(tex: Texture, minmax: TextureLODsMinMaxInfo) {
+            const info = self.getAssignedLODInformation(tex)
             if (info) {
-                const model = this.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
+                const model = self.lodInfos.get(info.key) as NEEDLE_progressive_texture_model;
                 if (model && model.lods) {
                     minmax.min_count = Math.min(minmax.min_count, model.lods.length);
                     minmax.max_count = Math.max(minmax.max_count, model.lods.length);
@@ -200,28 +223,6 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 }
             }
         }
-
-        if (material.type === "ShaderMaterial" || material.type === "RawShaderMaterial") {
-            const mat = material as ShaderMaterial;
-            for (const slot of Object.keys(mat.uniforms)) {
-                const val = mat.uniforms[slot].value as Texture;
-                if (val?.isTexture === true) {
-                    processTexture(val);
-                }
-            }
-        }
-        else if (material.isMaterial) {
-            for (const slot of Object.keys(material)) {
-                const val = material[slot] as Texture;
-                if (val?.isTexture === true) {
-                    processTexture(val);
-                }
-            }
-        }
-
-        material[cacheKey] = minmax;
-
-        return minmax;
     }
 
     /** Check if a LOD level is available for a mesh or a texture

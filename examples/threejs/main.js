@@ -103,6 +103,19 @@ function loadScene() {
 loadScene();
 
 
+const raycaster = new THREE.Raycaster();
+raycaster.params.Line.threshold = -1;
+window.addEventListener("click", evt => {
+    const mousePos = {
+        x: (evt.clientX / window.innerWidth) * 2 - 1,
+        y: -(evt.clientY / window.innerHeight) * 2 + 1
+    }
+    raycaster.setFromCamera(mousePos, camera);
+    const hits = raycaster.intersectObjects(scene.children, true);
+    if (hits?.length) {
+        console.log(hits[0])
+    }
+})
 
 const pane = new Pane();
 const btn = pane.addButton({

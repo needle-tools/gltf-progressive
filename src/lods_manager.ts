@@ -227,6 +227,10 @@ export class LODsManager {
     /** Update the LOD levels for the renderer. */
     private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number, _frame: number) {
 
+        if (!object.userData) {
+            object.userData = {};
+        }
+        
         let state = object.userData.LOD_state as LOD_state;
         if (!state) {
             state = new LOD_state();

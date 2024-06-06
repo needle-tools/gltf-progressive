@@ -1,7 +1,7 @@
 import { Box3, BufferGeometry, Camera, Frustum, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
 import { createLoaders } from "./loaders.js"
-import { getParam } from "./utils.js"
+import { getParam, isMobileDevice } from "./utils.internal.js"
 import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
@@ -230,7 +230,7 @@ export class LODsManager {
         if (!object.userData) {
             object.userData = {};
         }
-        
+
         let state = object.userData.LOD_state as LOD_state;
         if (!state) {
             state = new LOD_state();
@@ -570,7 +570,7 @@ export class LODsManager {
                 result.texture_lod = texture_lods_minmax.max_count - 1;
                 if (debugProgressiveLoading) {
                     const level = texture_lods_minmax.lods[texture_lods_minmax.max_count - 1];
-                    if(debugProgressiveLoading) console.log(`First Texture LOD ${result.texture_lod} (${level.max_height}px) - ${mesh.name}`);
+                    if (debugProgressiveLoading) console.log(`First Texture LOD ${result.texture_lod} (${level.max_height}px) - ${mesh.name}`);
                 }
             }
             else {
@@ -579,6 +579,10 @@ export class LODsManager {
                 const pixelSizeOnScreen = screenSize * factor;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {
                     const lod = texture_lods_minmax.lods[i];
+
+                    if (isMobileDevice() && lod.max_height > 4096)
+                        continue; // skip 8k textures on mobile devices (for now)
+
                     if (lod.max_height > pixelSizeOnScreen) {
                         result.texture_lod = i;
                         if (result.texture_lod < state.lastLodLevel_Texture) {

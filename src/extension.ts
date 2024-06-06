@@ -2,7 +2,8 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { getParam, getRaycastMesh, resolveUrl, setRaycastMesh } from "./utils.js";
+import { getParam, resolveUrl } from "./utils.internal.js";
+import { getRaycastMesh, setRaycastMesh } from "./utils.js";
 
 
 

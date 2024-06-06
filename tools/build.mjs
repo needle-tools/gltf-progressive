@@ -42,7 +42,8 @@ async function run() {
     copyRecursive("examples", outDir + "/examples");
 
     // publish to npm
-    const cmd = isDryRun ? "npm publish --dry-run" : "npm publish";
+    let cmd = isDryRun ? "npm publish --dry-run" : "npm publish";
+    cmd = "npm set registry https://registry.npmjs.org && " + cmd;
     console.log("Begin publish..." + (isDryRun ? " (dry run)" : ""));
     console.log(`Directory: \"${outDir}\"`);
     execSync(cmd, { cwd: outDir, stdio: "inherit" });

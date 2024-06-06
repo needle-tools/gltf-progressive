@@ -4,7 +4,7 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.2.0-alpha] - 2023-06-06
+## [1.2.0-alpha.3] - 2023-06-06
 - add: automatically load the highest LOD first to show a slightly better quality level as soon as possible
 - fix: improve Texture LOD selection by taking LOD level height into account
 - fix: correctly assign LOD level information to initially loaded texture

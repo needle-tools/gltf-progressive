@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { useNeedleProgressive, } from "@needle-engine/gltf-progressive"
+import { useNeedleProgressive, getRaycastMesh } from "https://www.unpkg.com/@needle-tools/gltf-progressive@latest"
+import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
+
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x555555);
@@ -20,10 +22,10 @@ window.addEventListener('resize', () => {
 });
 
 const orbit = new OrbitControls(camera, renderer.domElement);
-orbit.target = new THREE.Vector3(0, 14, 0);
-camera.position.x = 20;
-camera.position.y = 20.5;
-camera.position.z = 20.8;
+orbit.target = new THREE.Vector3(0, .5, 0);
+camera.position.x = .5;
+camera.position.y = 1.3;
+camera.position.z = 2;
 
 const grid = new THREE.GridHelper(50, 50, 0x444444, 0x666666);
 scene.add(grid);
@@ -54,23 +56,56 @@ new EXRLoader().load(environmentTextureUrl, texture => {
 
 
 
-// Integrate @needle-tools/gltf-progressive
-// This is the model we want to load
-const url = "https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb";
+const modelUrls = [
+    "https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/robot/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/jupiter_und_ganymed/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb",
+]
+let currentUrl = "";
+/** @type {null | THREE.Scene} */
+let currentScene = null;
 
-const gltfLoader = new GLTFLoader();
-
-/**
- * Call this method to register the progressive loader
- */
-useNeedleProgressive(url, renderer, gltfLoader)
-
-// just call the load method as usual
-gltfLoader.load(url, gltf => {
-    console.log(gltf)
-    scene.add(gltf.scene)
-    gltf.scene.position.y += .95;
-})
+function loadScene() {
+    let currentIndex = modelUrls.indexOf(currentUrl);
+    currentIndex += 1;
+    if (currentIndex >= modelUrls.length) {
+        currentIndex = 0;
+    }
+    const url = modelUrls[currentIndex];
+    currentUrl = url;
 
 
+    // Integrate @needle-tools/gltf-progressive
+    // Create a new GLTFLoader instance
+    const gltfLoader = new GLTFLoader();
+    /** Call this method to register the progressive loader */
+    useNeedleProgressive(url, renderer, gltfLoader)
 
+    // just call the load method as usual
+    gltfLoader.load(url, gltf => {
+        // we're basically just adding our glTF to the scene here
+        // the rest of the code is just for the demo
+        console.log(gltf)
+        if (currentUrl != url) return;
+        currentScene?.removeFromParent();
+        currentScene = gltf.scene;
+        scene.add(gltf.scene)
+        gltf.scene.position.y += .1;
+
+        // the church is huge - scaling it down so we don't have a big difference between the models
+        if (url.includes("church")) {
+            gltf.scene.scale.multiplyScalar(.1);
+        }
+    })
+}
+loadScene();
+
+
+
+const pane = new Pane();
+const btn = pane.addButton({
+    title: 'Change Scene',
+});
+
+btn.on('click', loadScene);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { useNeedleProgressive, getRaycastMesh } from "https://www.unpkg.com/@needle-tools/gltf-progressive@latest"
+import { useNeedleProgressive, getRaycastMesh, useRaycastMeshes } from "https://www.unpkg.com/@needle-tools/gltf-progressive@latest"
 import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
 
 
@@ -66,6 +66,7 @@ const modelUrls = [
 let currentUrl = "";
 /** @type {null | THREE.Scene} */
 let currentScene = null;
+let wireframe = false;
 
 function loadScene() {
     let currentIndex = modelUrls.indexOf(currentUrl);
@@ -75,7 +76,7 @@ function loadScene() {
     }
     const url = modelUrls[currentIndex];
     currentUrl = url;
-
+    wireframe = false;
 
     // Integrate @needle-tools/gltf-progressive
     // Create a new GLTFLoader instance
@@ -103,8 +104,9 @@ function loadScene() {
 loadScene();
 
 
+useRaycastMeshes();
 const raycaster = new THREE.Raycaster();
-raycaster.params.Line.threshold = -1;
+raycaster.params.Line.threshold = 0;
 window.addEventListener("click", evt => {
     const mousePos = {
         x: (evt.clientX / window.innerWidth) * 2 - 1,
@@ -113,13 +115,36 @@ window.addEventListener("click", evt => {
     raycaster.setFromCamera(mousePos, camera);
     const hits = raycaster.intersectObjects(scene.children, true);
     if (hits?.length) {
-        console.log(hits[0])
+        const obj = hits[0].object;
+        const raycastMesh = getRaycastMesh(obj);
+        if (raycastMesh) {
+            const newMesh = new THREE.Mesh(raycastMesh, new THREE.MeshBasicMaterial({ color: 0xffddff, wireframe: true, transparent: true, opacity: .5, depthTest: false }));
+            newMesh.matrix.copy(obj.matrixWorld);
+            newMesh.matrixAutoUpdate = false;
+            scene.add(newMesh);
+            setTimeout(() => {
+                newMesh.removeFromParent();
+            }, 1000)
+        }
     }
 })
 
-const pane = new Pane();
-const btn = pane.addButton({
-    title: 'Change Scene',
-});
 
-btn.on('click', loadScene);
+
+
+
+const pane = new Pane();
+pane.addButton({
+    title: 'Change Scene',
+}).on('click', loadScene);
+
+pane.addButton({
+    title: 'Toggle Wireframe',
+}).on('click', () => {
+    wireframe = !wireframe;
+    scene.traverse(child => {
+        if (child instanceof THREE.Mesh) {
+            child.material.wireframe = wireframe;
+        }
+    })
+});

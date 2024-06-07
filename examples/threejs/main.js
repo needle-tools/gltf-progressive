@@ -58,6 +58,7 @@ new EXRLoader().load(environmentTextureUrl, texture => {
 
 const modelUrls = [
     "https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/cyberpunk/model.glb",
     "https://engine.needle.tools/demos/gltf-progressive/assets/robot/model.glb",
     "https://engine.needle.tools/demos/gltf-progressive/assets/vase/model.glb",
     "https://engine.needle.tools/demos/gltf-progressive/assets/jupiter_und_ganymed/model.glb",
@@ -67,6 +68,8 @@ let currentUrl = "";
 /** @type {null | THREE.Scene} */
 let currentScene = null;
 let wireframe = false;
+/** @type {null | THREE.AnimationMixer} */
+let animationMixer = null;
 
 function loadScene() {
     let currentIndex = modelUrls.indexOf(currentUrl);
@@ -77,6 +80,10 @@ function loadScene() {
     const url = modelUrls[currentIndex];
     currentUrl = url;
     wireframe = false;
+    if (animationMixer) {
+        animationMixer.stopAllAction();
+        animationMixer = null;
+    }
 
     // Integrate @needle-tools/gltf-progressive
     // Create a new GLTFLoader instance
@@ -99,9 +106,31 @@ function loadScene() {
         if (url.includes("church")) {
             gltf.scene.scale.multiplyScalar(.1);
         }
+        else if (url.includes("cyberpunk")) {
+            gltf.scene.scale.multiplyScalar(15);
+        }
+
+        if (gltf.animations?.length) {
+            console.log("Playing animation", gltf.animations)
+            animationMixer = new THREE.AnimationMixer(gltf.scene);
+            const action = animationMixer.clipAction(gltf.animations[0]);
+            action.setLoop(THREE.LoopRepeat);
+            action.play();
+        }
     })
 }
 loadScene();
+
+
+const clock = new THREE.Clock();
+function loop() {
+    const dt = clock.getDelta();
+    if (animationMixer) {
+        animationMixer.update(dt);
+    }
+    window.requestAnimationFrame(loop);
+}
+window.requestAnimationFrame(loop);
 
 
 useRaycastMeshes();
@@ -115,7 +144,9 @@ window.addEventListener("click", evt => {
     raycaster.setFromCamera(mousePos, camera);
     const hits = raycaster.intersectObjects(scene.children, true);
     if (hits?.length) {
-        const obj = hits[0].object;
+        const hit = hits[0];
+        const obj = hit.object;
+        console.log("HIT", obj.name, hit)
         const raycastMesh = getRaycastMesh(obj);
         if (raycastMesh) {
             const newMesh = new THREE.Mesh(raycastMesh, new THREE.MeshBasicMaterial({ color: 0xffddff, wireframe: true, transparent: true, opacity: .5, depthTest: false }));

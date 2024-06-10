@@ -12,9 +12,15 @@ Support for loading of glTF or GLB files with progressive mesh or texture data f
 
 Examples are in the `/examples` directory. Live versions can be found in the links below.  
 
-- [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/)
+- [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
 - [\<model-viewer\>](https://engine.needle.tools/demos/gltf-progressive/modelviewer)
 - [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
+
+
+<br/>
+<video width="320" controls autoplay src="https://engine.needle.tools/demos/gltf-progressive/video.mp4">
+    <source src="https://engine.needle.tools/demos/gltf-progressive/video.mp4" type="video/mp4">
+</video>
 
 
 ## Usage
@@ -74,11 +80,11 @@ gltfLoader.load(url, gltf => {
 
 ### \<model-viewer\>
 
-The full example can be found in `examples/modelviewer.html`
+The example can be found in `examples/modelviewer.html`
 
 ```html
 <head>
-    <!-- Include the import map and the gltf-progressive package -->
+    <!-- Include threejs import map -->
     <script type="importmap">
         {
             "imports": {
@@ -87,14 +93,16 @@ The full example can be found in `examples/modelviewer.html`
             }
         }
     </script>
+    <!-- Include gltf-progressive -->
     <script type="module" src="https://www.unpkg.com/@needle-tools/gltf-progressive@latest"></script>
+    <!-- Include model-viewer -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 </head>
 <body>
 
     <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb" camera-controls auto-rotate></model-viewer>
     
-    ...
+</body>
 ```
 
 

@@ -404,13 +404,6 @@ export class LODsManager {
         }
 
         if (!this.cameraFrustrum?.intersectsObject(mesh)) {
-            // console.log("Mesh not visible");
-            // if (debugProgressiveLoading && mesh.geometry.boundingSphere) {
-            //     const bounds = mesh.geometry.boundingSphere;
-            //     this._sphere.copy(bounds);
-            //     this._sphere.applyMatrix4(mesh.matrixWorld);
-            //     Gizmos.DrawWireSphere(this._sphere.center, this._sphere.radius * 1.01, 0xff5555, .5);
-            // }
             // the object is not visible by the camera
             result.mesh_lod = 99;
             result.texture_lod = 99;

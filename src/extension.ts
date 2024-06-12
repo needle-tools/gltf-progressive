@@ -515,6 +515,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             if (textureInfo?.extensions) {
                 const ext: NEEDLE_progressive_texture_model = textureInfo?.extensions[EXTENSION_NAME];
                 if (ext) {
+                    if (!ext.lods) {
+                        if (debug) console.warn("Texture has no LODs", ext);
+                        return;
+                    }
                     let found = false;
                     for (const key of this.parser.associations.keys()) {
                         if ((key as Texture).isTexture === true) {
@@ -573,7 +577,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     static registerTexture = (url: string, tex: Texture, level: number, index: number, ext: NEEDLE_progressive_texture_model) => {
         if (debug) console.log("> Progressive: register texture", index, tex.name, tex.uuid, tex, ext);
         if (!tex) {
-            if(debug) console.error("gltf-progressive: Register texture without texture");
+            if (debug) console.error("gltf-progressive: Register texture without texture");
             return;
         }
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)

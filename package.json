@@ -21,7 +21,7 @@
     "optimization"
   ],
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./src/index.ts",
   "exports": {
     ".": {
       "import": "./src/index.js",

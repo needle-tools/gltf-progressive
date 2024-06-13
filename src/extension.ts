@@ -35,6 +35,10 @@ if (debug) {
         debug_toggle_maps.forEach((arr, obj) => {
             for (const key of arr.keys) {
                 const cur = obj[key];
+                // if it's null or undefined we skip it
+                if (cur == null) {
+                    continue;
+                }
                 if ((cur as BufferGeometry).isBufferGeometry === true) {
                     const info = NEEDLE_progressive.getMeshLODInformation(cur);
                     const level = !info ? 0 : Math.min(currentDebugLodLevel, info.lods.length);

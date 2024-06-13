@@ -430,7 +430,15 @@ export class LODsManager {
 
             // calculate size on screen
             this._tempBox.copy(boundingBox);
-            this._tempBox.applyMatrix4(mesh.matrixWorld);
+
+            // For skinned meshes we need to ignore the transformation of the mesh itself since it's controlled by the bones
+            if (mesh.type === "SkinnedMesh") {
+                if (mesh.parent)
+                    this._tempBox.applyMatrix4(mesh.parent.matrixWorld);
+            }
+            else {
+                this._tempBox.applyMatrix4(mesh.matrixWorld);
+            }
 
             // Converting into projection space has the disadvantage that objects further to the side
             // will have a much larger coverage, especially with high-field-of-view situations like in VR.

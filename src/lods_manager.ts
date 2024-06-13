@@ -1,4 +1,4 @@
-import { Box3, BufferGeometry, Camera, Frustum, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, Box3Helper, BufferGeometry, Camera, Frustum, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isMobileDevice } from "./utils.internal.js"
@@ -410,7 +410,14 @@ export class LODsManager {
             return;
         }
 
-        const boundingBox = mesh.geometry.boundingBox;
+        let boundingBox = mesh.geometry.boundingBox;
+
+        if (mesh.type === "SkinnedMesh") {
+            const skinnedMesh = mesh as SkinnedMesh
+            if (!skinnedMesh.boundingBox) skinnedMesh.computeBoundingBox();
+            boundingBox = skinnedMesh.boundingBox;
+        }
+
         if (boundingBox && (camera as PerspectiveCamera).isPerspectiveCamera) {
             const cam = camera as PerspectiveCamera;
 

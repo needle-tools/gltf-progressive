@@ -61,8 +61,10 @@ if (debug) {
                 debug_materials.forEach(mat => {
                     // we don't want to change the skybox material
                     if (mat.name == "BackgroundCubeMaterial") return;
-                    if ("wireframe" in mat)
+                    if (mat["glyphMap"] != undefined) return;
+                    if ("wireframe" in mat) {
                         mat.wireframe = wireframe;
+                    }
                 });
             }
         }

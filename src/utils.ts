@@ -1,13 +1,15 @@
 import { BufferGeometry, Intersection, Mesh, Object3D, Raycaster } from "three";
 
+const $raycastmesh = Symbol("needle:raycast-mesh");
+
 /**
  * The raycast mesh is a low poly version of the mesh used for raycasting. It is set when a mesh that has LOD level with more vertices is discovered for the first time
  * @param obj the object to get the raycast mesh from
  * @returns the raycast mesh or null if not set
  */
 export function getRaycastMesh(obj: Object3D) {
-    if (obj?.userData?.["needle:raycast-mesh"] instanceof BufferGeometry) {
-        return obj.userData["needle:raycast-mesh"];
+    if (obj?.[$raycastmesh] instanceof BufferGeometry) {
+        return obj[$raycastmesh];
     }
     return null;
 }
@@ -24,8 +26,7 @@ export function setRaycastMesh(obj: Object3D, geom: BufferGeometry) {
             const clone = shallowCloneGeometry(geom);
             // remove LODs userdata to not update the geometry if the raycast mesh is rendered in the scene
             clone.userData = { isRaycastMesh: true };
-            if (!obj.userData) obj.userData = {};
-            obj.userData["needle:raycast-mesh"] = clone;
+            obj[$raycastmesh] = clone;
         }
     }
 }

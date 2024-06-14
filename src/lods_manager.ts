@@ -8,6 +8,8 @@ const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");
 
 const $lodsManager = Symbol("Needle:LODSManager");
+const $lodstate = Symbol("Needle:LODState");
+const $currentLOD = Symbol("Needle:CurrentLOD");
 
 export declare type LOD_Results = { mesh_lod: number, texture_lod: number };
 
@@ -50,7 +52,7 @@ export class LODsManager {
 
     /** @internal */
     static getObjectLODState(object: Object3D): LOD_state | undefined {
-        return object.userData?.LOD_state;
+        return object[$lodstate] as LOD_state | undefined;
     }
 
     static addPlugin(plugin: NEEDLE_progressive_plugin) {
@@ -231,10 +233,10 @@ export class LODsManager {
             object.userData = {};
         }
 
-        let state = object.userData.LOD_state as LOD_state;
+        let state = object[$lodstate] as LOD_state;
         if (!state) {
             state = new LOD_state();
-            object.userData.LOD_state = state;
+            object[$lodstate] = state;
         }
 
         // Wait a few frames before updating the LODs to make sure the object is loaded, matrices are updated, etc.
@@ -288,19 +290,17 @@ export class LODsManager {
             return;
         }
 
-        const LOD_material = material as Material & { NEEDLE_LOD?: number };
-
         // Check if the material LOD was already updated to a certain level
         // We don't use the userData here because we want to re-run assigning textures if the material has been cloned
         let update = false;
-        if (LOD_material.NEEDLE_LOD == undefined) {
+        if (material[$currentLOD] == undefined) {
             update = true;
         }
-        else if (level < LOD_material.NEEDLE_LOD) {
+        else if (level < material[$currentLOD]) {
             update = true;
         }
         if (update) {
-            LOD_material.NEEDLE_LOD = level;
+            material[$currentLOD] = level;
             NEEDLE_progressive.assignTextureLOD(material, level);
         }
     }
@@ -313,12 +313,11 @@ export class LODsManager {
      */
     private loadProgressiveMeshes(mesh: Mesh, level: number): Promise<BufferGeometry | null> {
         if (!mesh) return Promise.resolve(null);
-        if (!mesh.userData) mesh.userData = {};
-        if (mesh.userData.LOD !== level) {
-            mesh.userData.LOD = level;
+        if (mesh[$currentLOD] !== level) {
+            mesh[$currentLOD] = level;
             const originalGeometry = mesh.geometry;
             return NEEDLE_progressive.assignMeshLOD(mesh, level).then(res => {
-                if (res && mesh.userData.LOD == level && originalGeometry != mesh.geometry) {
+                if (res && mesh[$currentLOD] == level && originalGeometry != mesh.geometry) {
                     // if (this.handles) {
                     //     for (const inst of this.handles) {
                     //         // if (inst["LOD"] < level) continue;

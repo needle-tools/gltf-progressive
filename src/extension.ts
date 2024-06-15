@@ -507,7 +507,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return this.parser.getDependency("mesh", meshIndex).then(mesh => {
             this._isLoadingMesh = false;
             if (mesh) {
-                NEEDLE_progressive.registerMesh(this.url, ext.guid, mesh as Mesh, ext.lods.length, undefined, ext);
+                NEEDLE_progressive.registerMesh(this.url, ext.guid, mesh as Mesh, ext.lods?.length, undefined, ext);
             }
             return mesh;
         });
@@ -531,7 +531,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             const val = this.parser.associations.get(key) as { textures: number };
                             if (val.textures === index) {
                                 found = true;
-                                NEEDLE_progressive.registerTexture(this.url, key as Texture, ext.lods.length, index, ext);
+                                NEEDLE_progressive.registerTexture(this.url, key as Texture, ext.lods?.length, index, ext);
                             }
                         }
                     }
@@ -539,7 +539,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (!found) {
                         this.parser.getDependency("texture", index).then(tex => {
                             if (tex) {
-                                NEEDLE_progressive.registerTexture(this.url, tex as Texture, ext.lods.length, index, ext);
+                                NEEDLE_progressive.registerTexture(this.url, tex as Texture, ext.lods?.length, index, ext);
                             }
                         });
                     }

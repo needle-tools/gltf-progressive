@@ -15,7 +15,8 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
 - [\<model-viewer\>](https://engine.needle.tools/demos/gltf-progressive/modelviewer)
 - [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
-- [Needle Engine](https://stackblitz.com/edit/needle-engine-gltf-progressive?file=src%2Fmain.ts) - Interactive Example on StackBlitz
+
+[Interactive Examples: Stackblitz ⚡️](https://stackblitz.com/@marwie/collections/gltf-progressive)
 
 
 <br/>

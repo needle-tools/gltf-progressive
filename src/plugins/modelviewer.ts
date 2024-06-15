@@ -27,7 +27,6 @@ export function patchModelViewer(modelviewer: HTMLElement) {
         }
     }
     if (renderer) {
-        console.log("Adding Needle LODs to modelviewer");
         const lod = LODsManager.get(renderer);
         LODsManager.addPlugin(new RegisterModelviewerDataPlugin(modelviewer))
         lod.enable();
@@ -36,12 +35,6 @@ export function patchModelViewer(modelviewer: HTMLElement) {
             const camera = scene["camera"] || scene.traverse((o) => o.type == "PerspectiveCamera")[0];
             if (camera) {
                 renderer.render(scene, camera);
-                // setTimeout(() => {
-                //     renderer.render(scene, camera);
-                // }, 100)
-                // setTimeout(() => {
-                //     renderer.render(scene, camera);
-                // }, 1200)
             }
         }
 

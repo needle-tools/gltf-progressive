@@ -278,7 +278,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         }
         if (lodObject) {
             if (lodObject?.userData?.LODS) {
-                const lods = lodObject.userData.LODS();
+                const lods = lodObject.userData.LODS;
                 lodInformation = this.lodInfos.get(lods.key);
                 if (level === undefined) return lodInformation != undefined;
                 if (lodInformation) {
@@ -640,7 +640,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         const debugverbose = debug == "verbose";
 
         /** this key is used to lookup the LOD information */
-        const LOD: LODInformation | undefined = current.userData.LODS?.();
+        const LOD: LODInformation | undefined = current.userData.LODS;
 
         if (!LOD) {
             return null;
@@ -880,10 +880,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (!res) return;
         if (!res.userData) res.userData = {};
         const info: LODInformation = new LODInformation(url, key, level, index, density);
-        res.userData.LODS = () => info;
+        res.userData.LODS = info;
     }
     private static getAssignedLODInformation(res: ObjectThatMightHaveLODs | null | undefined): null | LODInformation {
-        return res?.userData?.LODS?.() || null;
+        return res?.userData?.LODS || null;
     }
 
     // private static readonly _copiedTextures: WeakMap<Texture, Texture> = new Map();
@@ -928,13 +928,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     }
 }
 
-declare type ObjectThatMightHaveLODs = {
-    name: string,
-    userData?: {
-        // this is not a normal field because we don't want it to be serialized on export (but to be cloned)
-        LODS?: () => LODInformation
-    }
-};
+declare type ObjectThatMightHaveLODs = { name: string, userData?: { LODS?: LODInformation } };
 
 // declare type GetLODInformation = () => LODInformation | null;
 

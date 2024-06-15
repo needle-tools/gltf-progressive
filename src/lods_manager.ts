@@ -299,7 +299,7 @@ export class LODsManager {
         // Check if the material LOD was already updated to a certain level
         // We don't use the userData here because we want to re-run assigning textures if the material has been cloned
         let update = false;
-        if (material[$currentLOD] == undefined) {
+        if (material[$currentLOD] === undefined) {
             update = true;
         }
         else if (level < material[$currentLOD]) {

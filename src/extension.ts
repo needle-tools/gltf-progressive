@@ -333,10 +333,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         geo = geo[index];
                     }
                     if (geo && currentGeometry != geo) {
+                        const isGeometry = (geo as BufferGeometry)?.isBufferGeometry;
                         // if (debug == "verbose") console.log("Progressive Mesh " + mesh.name + " loaded", currentGeometry, "→", geo, "\n", mesh)
-                        if (geo instanceof BufferGeometry) {
+                        if (isGeometry) {
                             mesh.geometry = geo;
                             if (debug) registerDebug(mesh, "geometry", lodinfo.url);
+                        }
+                        else if(debug) {
+                            console.error("Invalid LOD geometry", geo);
                         }
                     }
                 }
@@ -833,8 +837,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                                 const geometries = new Array<BufferGeometry>();
                                 for (let i = 0; i < mesh.children.length; i++) {
                                     const child = mesh.children[i];
-                                    if (child instanceof Mesh) {
-                                        const geo = child.geometry as BufferGeometry;
+                                    if ((child as Mesh).isMesh === true) {
+                                        const geo = (child as Mesh).geometry as BufferGeometry;
                                         NEEDLE_progressive.assignLODInformation(LOD.url, geo, LODKEY, level, i, meshExt.density);
                                         geometries.push(geo);
                                     }

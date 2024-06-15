@@ -4,9 +4,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.2.1-alpha.1] - 2023-06-15
+## [1.2.1-alpha.2] - 2023-06-15
 - fix: Ortographic camera causing LODs being falsely updated
 - fix: regression introduced in 1.2.1-alpha
+- fix: error when trying to load a LOD glTF directly 
+- fix: issues caused by instanceof in local development environments
 
 ## [1.2.0-alpha.9] - 2023-06-13
 - fix: issue where skinned mesh matrix was falsely applied to calculate screen size

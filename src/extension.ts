@@ -796,7 +796,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             return resolve(tex);
                         }
                         else if (debug) {
-                            console.warn("Could not find texture with guid", ext.guid);
+                            console.warn("Could not find texture with guid", ext.guid, gltf.parser.json);
                         }
                     }
 
@@ -841,6 +841,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                                 }
                                 return resolve(geometries);
                             }
+                        }
+                        else if (debug) {
+                            console.warn("Could not find mesh with guid", ext.guid, gltf.parser.json);
                         }
                     }
 

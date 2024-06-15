@@ -168,6 +168,12 @@ export class LODsManager {
         if (camera.parent && camera.parent.type === "CubeCamera") {
             updateLODs = false;
         }
+        else if (_stack >= 1) {
+            // don't update LODs if we're e.g. rendering a shadow map
+            if (camera.type === "OrthographicCamera") {
+                updateLODs = false;
+            }
+        }
 
         if (updateLODs) {
             if (suppressProgressiveLoading) return;
@@ -377,6 +383,7 @@ export class LODsManager {
         /** highest LOD level we'd ever expect to be generated */
         const maxLevel = 10;
         let mesh_level = maxLevel + 1;
+        let mesh_level_calculated = false;
 
 
         if (debugProgressiveLoading && mesh["DEBUG:LOD"] != undefined) {
@@ -399,6 +406,7 @@ export class LODsManager {
         }
 
         if (!has_mesh_lods) {
+            mesh_level_calculated = true;
             mesh_level = 0;
         }
 
@@ -565,11 +573,16 @@ export class LODsManager {
             const isLowerLod = expectedLevel < mesh_level;
             if (isLowerLod) {
                 mesh_level = expectedLevel;
+                mesh_level_calculated = true;
             }
         }
 
-
-        result.mesh_lod = mesh_level;
+        if (mesh_level_calculated) {
+            result.mesh_lod = mesh_level;
+        }
+        else {
+            result.mesh_lod = state.lastLodLevel_Mesh;
+        }
 
         if (has_texture_lods) {
             // If this is the first time a texture LOD is requested we want to get the highest LOD to not display the minimal resolution that the root glTF contains as long while we wait for loading of e.g. the 8k LOD 0 texture
@@ -606,11 +619,6 @@ export class LODsManager {
             result.texture_lod = 0;
         }
     }
-}
-
-
-function lerp(a: number, b: number, t: number) {
-    return a + (b - a) * t;
 }
 
 

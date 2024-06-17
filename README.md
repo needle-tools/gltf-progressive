@@ -6,7 +6,7 @@ Support for loading of glTF or GLB files with progressive mesh or texture data f
 - Automatic loading of mesh and texture LODs.   
 - High quality LOD levels are loaded on demand based on screen density.
 - Use low-poly LOD meshes for raycasting which allows the usage of high-poly meshes with smooth interaction
-
+- Use [cloud.needle.tools](https://cloud.needle.tools) for processing glTF, GLB & VRM assets
 
 ## Examples
 

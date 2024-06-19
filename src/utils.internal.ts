@@ -43,6 +43,6 @@ let _ismobile: boolean | undefined;
 export function isMobileDevice() {
     if (_ismobile !== undefined) return _ismobile;
     _ismobile = /iPhone|iPad|iPod|Android|IEMobile/i.test(navigator.userAgent);
-    if (getParam("debugprogressive")) console.log("isMobileDevice", _ismobile);
+    if (getParam("debugprogressive")) console.log("[glTF Progressive]: isMobileDevice", _ismobile);
     return _ismobile;
 }

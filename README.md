@@ -13,8 +13,10 @@ Support for loading of glTF or GLB files with progressive mesh or texture data f
 Examples are in the `/examples` directory. Live versions can be found in the links below.  
 
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
-- [\<model-viewer\>](https://engine.needle.tools/demos/gltf-progressive/modelviewer)
 - [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
+- \<model-viewer\> 
+  - [single \<model-viewer> element](https://engine.needle.tools/demos/gltf-progressive/modelviewer) 
+  - [multiple \<model-viewer> elements](https://engine.needle.tools/demos/gltf-progressive/modelviewer-multiple)
 
 [Interactive Examples: Stackblitz ⚡️](https://stackblitz.com/@marwie/collections/gltf-progressive)
 

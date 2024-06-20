@@ -19,6 +19,13 @@ export declare type LOD_Results = { mesh_lod: number, texture_lod: number };
 
 const levels: LOD_Results = { mesh_lod: -1, texture_lod: -1 };
 
+
+declare type LODChangedEventListener = (args: {
+    type: "mesh" | "texture";
+    level: number;
+    object: Object3D | Material | Texture;
+}) => void;
+
 /**
  * The LODsManager class is responsible for managing the LODs and progressive assets in the scene. It will automatically update the LODs based on the camera position, screen coverage and mesh density of the objects.   
  * It must be enabled by calling the `enable` method.     
@@ -108,6 +115,14 @@ export class LODsManager {
      * If set to true, the LODsManager will not update the LODs.
      */
     pause: boolean = false;
+
+    private readonly _lodchangedlisteners: LODChangedEventListener[] = [];
+
+    addEventListener(evt: "changed", listener: LODChangedEventListener) {
+        if (evt === "changed") {
+            this._lodchangedlisteners.push(listener);
+        }
+    }
 
     // readonly plugins: NEEDLE_progressive_plugin[] = [];
 
@@ -321,7 +336,9 @@ export class LODsManager {
         }
         if (update) {
             material[$currentLOD] = level;
-            NEEDLE_progressive.assignTextureLOD(material, level);
+            NEEDLE_progressive.assignTextureLOD(material, level).then(_ => {
+                this._lodchangedlisteners.forEach(l => l({ type: "texture", level, object: material }));
+            })
         }
     }
 
@@ -338,6 +355,7 @@ export class LODsManager {
             const originalGeometry = mesh.geometry;
             return NEEDLE_progressive.assignMeshLOD(mesh, level).then(res => {
                 if (res && mesh[$currentLOD] == level && originalGeometry != mesh.geometry) {
+                    this._lodchangedlisteners.forEach(l => l({ type: "mesh", level, object: mesh }));
                     // if (this.handles) {
                     //     for (const inst of this.handles) {
                     //         // if (inst["LOD"] < level) continue;

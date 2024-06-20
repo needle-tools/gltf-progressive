@@ -36,7 +36,7 @@ function _patchModelViewer(modelviewer: HTMLElement, index: number) {
     console.debug("[gltf-progressive] found model-viewer..." + index)
 
     // Find the necessary internal methods and properties. We need access to the scene, renderer
-    
+
     let renderer: WebGLRenderer | null = null;
     let scene: Scene | null = null;
     let needsRender: Function | null = null; // < used to force render updates for a few frames
@@ -62,21 +62,34 @@ function _patchModelViewer(modelviewer: HTMLElement, index: number) {
         const lod = LODsManager.get(renderer, { engine: "model-viewer" });
         LODsManager.addPlugin(new RegisterModelviewerDataPlugin())
         lod.enable();
+        // Trigger a render when a LOD has changed
+        lod.addEventListener("changed", () => {
+            needsRender?.call(modelviewer);
+        });
+        // Trigger a render when the model viewer visibility changes
+        modelviewer.addEventListener("model-visibility", (evt) => {
+            const visible = (evt as CustomEvent).detail.visible;
+            if (visible)
+                needsRender?.call(modelviewer);
+        });
+        modelviewer.addEventListener("load", () => {
+            renderFrames();
+        });
 
-        if (scene) {
-            /**
-             * For model viewer to immediately update without interaction we need to trigger a few renders
-             * We do this so that the LODs are loaded
-             */
+        /**
+         * For model viewer to immediately update without interaction we need to trigger a few renders
+         * We do this so that the LODs are loaded
+         */
+        function renderFrames() {
             if (needsRender) {
                 let forcedFrames = 0;
                 let interval = setInterval(() => {
-                    if (forcedFrames++ > 10) {
+                    if (forcedFrames++ > 5) {
                         clearInterval(interval);
                         return;
                     }
                     needsRender?.call(modelviewer);
-                }, 150)
+                }, 300)
             }
         }
 

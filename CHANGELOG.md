@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [1.2.2-alpha.2] - 2023-06-20
 - Add: Register version in global "GLTF_PROGRESSIVE_VERSION" variable
+- Add: `<model-viewer>` elements added document at any time are now properly registered 
 - Fix: LOD updates for multiple `<model-viewer>` elements
 - Fix: Initial render tick for a few frames for `<model-viewer>` to trigger LOD updates when the model-viewer element is not animated or interacted with
 - Change: `<model-viewer>` elements will fetch a slightly higher texture LOD

@@ -622,7 +622,10 @@ export class LODsManager {
             }
             else {
                 const volume = state.lastScreenspaceVolume.x + state.lastScreenspaceVolume.y + state.lastScreenspaceVolume.z;
-                const factor = state.lastScreenCoverage * 2;
+                let factor = state.lastScreenCoverage * 2;
+                if (this.context?.engine === "model-viewer") {
+                    factor *= 2;
+                }
                 const screenSize = canvasHeight / window.devicePixelRatio;
                 const pixelSizeOnScreen = screenSize * factor;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {

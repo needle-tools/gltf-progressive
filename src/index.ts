@@ -1,3 +1,5 @@
+export { version as VERSION } from "./version.js"
+
 export * from "./extension.js"
 export * from "./plugins/index.js"
 export { LODsManager } from "./lods_manager.js"
@@ -5,8 +7,14 @@ export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addD
 export * from "./utils.js"
 
 
+
+/** Modelviewer */
 import { patchModelViewer } from "./plugins/modelviewer.js";
 patchModelViewer();
+
+
+
+
 
 import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";

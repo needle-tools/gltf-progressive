@@ -1,0 +1,51 @@
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gltf-progressive & model-viewer</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three/build/three.module.js",
+                "three/": "https://unpkg.com/three/"
+            }
+        }
+    </script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    <script type="module" src="../dist/lib/index.js"></script>
+</head>
+
+<div class="layout">
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb" ar
+        shadow-intensity="1" camera-controls touch-action="pan-y" auto-rotate autoplay
+        max-camera-orbit="auto 90deg auto"></model-viewer>
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb" ar
+        shadow-intensity="1" camera-controls touch-action="pan-y" auto-rotate autoplay
+        max-camera-orbit="auto 90deg auto"></model-viewer>
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/cyberpunk/model.glb" ar
+        shadow-intensity="1" camera-controls touch-action="pan-y" auto-rotate autoplay
+        max-camera-orbit="auto 90deg auto"></model-viewer>
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/vase/model.glb" ar
+        shadow-intensity="1" camera-controls touch-action="pan-y" auto-rotate autoplay
+        max-camera-orbit="auto 90deg auto"></model-viewer>
+</div>
+
+<style>
+    .layout {
+        position: relative;
+        width: 100%;
+        height: 100%;
+
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    model-viewer {
+        width: 100%;
+        height: 100%;
+        flex: 1;
+    }
+</style>
+
+</html>

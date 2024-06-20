@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import { join } from "path";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { copyFile, mkdir, rm, writeFile } from "fs/promises"
+import { copyRecursive, postprocessExamples, updateVersion } from "./utils.mjs";
 
 
 run();
@@ -14,11 +15,11 @@ async function run() {
     await mkdir(outDir, { recursive: true });
 
     execSync("npm run build:dist", { cwd: process.cwd(), stdio: "inherit" });
-    execSync("npm run build:lib", { cwd: process.cwd(), stdio: "inherit" });
-
-    console.log("Copy & modify package.json")
     const outPackageJson = outDir + "/package.json";
     await copyFile("package.json", outPackageJson);
+    execSync("npm run build:lib", { cwd: process.cwd(), stdio: "inherit" });
+
+    console.log("Modify package.json")
     const packageJson = JSON.parse(readFileSync(outPackageJson));
     delete packageJson.publishConfig;
     delete packageJson.scripts;
@@ -32,6 +33,9 @@ async function run() {
     await copyFile("CHANGELOG.md", outDir + "/CHANGELOG.md");
     await copyFile("README.md", outDir + "/README.md");
 
+    // update version
+    updateVersion(packageJson);
+
     console.log("Finished building!");
 
     // copy npmignore
@@ -40,6 +44,7 @@ async function run() {
     // copy examples
     console.log("Copy examples...");
     copyRecursive("examples", outDir + "/examples");
+    postprocessExamples();
 
     // publish to npm
     let cmd = isDryRun ? "npm publish --dry-run" : "npm publish";
@@ -50,21 +55,3 @@ async function run() {
     console.log("Finished publish!" + (isDryRun ? " (dry run)" : ""))
 }
 
-function copyRecursive(src, dest) {
-    const entries = readdirSync(src, { withFileTypes: true });
-
-    for (const file of entries) {
-        // ignore node_modules
-        if (file.name === "node_modules")
-            continue;
-        if (file.isDirectory()) {
-            mkdirSync(join(dest, file.name));
-            copyRecursive(join(src, file.name), join(dest, file.name));
-        }
-        else {
-            mkdirSync(dest, { recursive: true });
-            copyFileSync(join(src, file.name), join(dest, file.name));
-        }
-    }
-
-}

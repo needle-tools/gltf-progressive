@@ -137,6 +137,7 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
                         const value = mat[key] as Texture & { userData: { associations: { textures: number } } };
                         if (value?.isTexture === true) {
                             const textureIndex = value.userData?.associations?.textures;
+                            if (textureIndex == null) continue;
                             const textureData = currentGLTF!.parser.json.textures[textureIndex];
                             if (!textureData) {
                                 console.warn("Texture data not found for texture index " + textureIndex);

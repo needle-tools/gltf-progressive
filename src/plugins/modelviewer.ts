@@ -55,7 +55,7 @@ function tryGetModelViewerConstructor(): ModelViewerConstructor | null {
 function searchModelViewers() {
     // Query once for model viewer. If a user does not have model-viewer in their page, this will return null.
     const modelviewers = document.querySelectorAll("model-viewer");
-    modelviewers.forEach((modelviewer, index) => {
+    modelviewers.forEach((modelviewer) => {
         _patchModelViewer(modelviewer as HTMLElement);
     });
 }

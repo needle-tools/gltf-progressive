@@ -7,33 +7,72 @@ import { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 const $meshLODSymbol = Symbol("NEEDLE_mesh_lod");
 const $textureLODSymbol = Symbol("NEEDLE_texture_lod");
 
+let documentObserver: MutationObserver | null = null;
 
 export function patchModelViewer() {
-    document.removeEventListener("DOMContentLoaded", searchModelViewers);
-    document.addEventListener("DOMContentLoaded", searchModelViewers);
+    const ModelViewerElement = tryGetModelViewerConstructor();
+    if (!ModelViewerElement) {
+        return;
+    }
+    ModelViewerElement.mapURLs(function (url) {
+        searchModelViewers();
+        return url;
+    });
     searchModelViewers();
+
+    // observe the document for new model-viewers
+    documentObserver?.disconnect();
+    documentObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node instanceof HTMLElement && node.tagName.toLowerCase() === "model-viewer") {
+                    _patchModelViewer(node);
+                }
+            });
+        });
+    });
+    documentObserver.observe(document, { childList: true, subtree: true });
 }
+
+declare type ModelViewerConstructor = CustomElementConstructor & { mapURLs: Function };
+
+/**
+ * Tries to get the mode-viewer constructor from the custom element registry. If it doesnt exist yet we will wait for it to be loaded in case it's added to the document at a later point
+ */
+function tryGetModelViewerConstructor(): ModelViewerConstructor | null {
+    // If model-viewer is already registered we can ignore this
+    const ModelViewerElement = customElements.get('model-viewer')
+    if (ModelViewerElement) return ModelViewerElement as ModelViewerConstructor;
+    // wait for model-viewer to be defined
+    customElements.whenDefined('model-viewer').then(() => {
+        console.debug("[gltf-progressive] model-viewer defined");
+        patchModelViewer();
+    });
+    return null;
+}
+
 
 function searchModelViewers() {
     // Query once for model viewer. If a user does not have model-viewer in their page, this will return null.
     const modelviewers = document.querySelectorAll("model-viewer");
     modelviewers.forEach((modelviewer, index) => {
-        _patchModelViewer(modelviewer as HTMLElement, index);
+        _patchModelViewer(modelviewer as HTMLElement);
     });
 }
 
 const foundModelViewers = new WeakSet();
+let modelViewerCount = 0;
 
 /** Patch modelviewer to support NEEDLE progressive system
  * @returns a function to remove the patch
  */
-function _patchModelViewer(modelviewer: HTMLElement, index: number) {
+function _patchModelViewer(modelviewer: HTMLElement) {
     if (!modelviewer)
         return null;
     if (foundModelViewers.has(modelviewer))
         return null;
     foundModelViewers.add(modelviewer);
-    console.debug("[gltf-progressive] found model-viewer..." + index)
+    console.debug("[gltf-progressive] found new model-viewer..." + (++modelViewerCount) + "\n", modelviewer.getAttribute("src"));
 
     // Find the necessary internal methods and properties. We need access to the scene, renderer
 

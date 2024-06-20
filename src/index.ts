@@ -7,15 +7,6 @@ export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addD
 export * from "./utils.js"
 
 
-
-/** Modelviewer */
-import { patchModelViewer } from "./plugins/modelviewer.js";
-patchModelViewer();
-
-
-
-
-
 import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { addDracoAndKTX2Loaders, createLoaders } from "./loaders.js";
@@ -52,5 +43,13 @@ export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loade
     }
     return lod;
 }
+
+
+
+/** Modelviewer */
+import { patchModelViewer } from "./plugins/modelviewer.js";
+patchModelViewer();
+
+
 
 

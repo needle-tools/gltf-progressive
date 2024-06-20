@@ -33,31 +33,50 @@ function _patchModelViewer(modelviewer: HTMLElement, index: number) {
     if (foundModelViewers.has(modelviewer))
         return null;
     foundModelViewers.add(modelviewer);
-
     console.debug("[gltf-progressive] found model-viewer..." + index)
+
+    // Find the necessary internal methods and properties. We need access to the scene, renderer
+    
     let renderer: WebGLRenderer | null = null;
     let scene: Scene | null = null;
+    let needsRender: Function | null = null; // < used to force render updates for a few frames
+
     for (let p = modelviewer; p != null; p = Object.getPrototypeOf(p)) {
         const privateAPI = Object.getOwnPropertySymbols(p);
         const rendererSymbol = privateAPI.find((value) => value.toString() == 'Symbol(renderer)');
         const sceneSymbol = privateAPI.find((value) => value.toString() == 'Symbol(scene)');
+        const needsRenderSymbol = privateAPI.find((value) => value.toString() == 'Symbol(needsRender)');
         if (!renderer && rendererSymbol != null) {
             renderer = modelviewer[rendererSymbol].threeRenderer;
         }
         if (!scene && sceneSymbol != null) {
             scene = modelviewer[sceneSymbol];
         }
+        if (!needsRender && needsRenderSymbol != null) {
+            needsRender = modelviewer[needsRenderSymbol];
+        }
     }
     if (renderer && scene) {
+
         console.debug("[gltf-progressive] setup model-viewer");
         const lod = LODsManager.get(renderer, { engine: "model-viewer" });
         LODsManager.addPlugin(new RegisterModelviewerDataPlugin())
         lod.enable();
 
         if (scene) {
-            const camera = scene["camera"] || scene.traverse((o) => o.type == "PerspectiveCamera")[0];
-            if (camera) {
-                renderer.render(scene, camera);
+            /**
+             * For model viewer to immediately update without interaction we need to trigger a few renders
+             * We do this so that the LODs are loaded
+             */
+            if (needsRender) {
+                let forcedFrames = 0;
+                let interval = setInterval(() => {
+                    if (forcedFrames++ > 10) {
+                        clearInterval(interval);
+                        return;
+                    }
+                    needsRender?.call(modelviewer);
+                }, 150)
             }
         }
 

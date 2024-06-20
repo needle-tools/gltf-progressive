@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>gltf-progressive & model-viewer</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap"
+        rel="stylesheet">
+
     <script type="importmap">
         {
             "imports": {
@@ -17,36 +23,84 @@
 </head>
 
 <div class="layout">
-    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb" ar
+    <div class="card">
+        <h1>glTF Progressive</h1>
+        <h3><a href="https://www.npmjs.com/package/@needle-tools/gltf-progressive"
+                target="_blank">@needle-tools/gltf-progressive</a></h3>
+        <p>Load high quality assets in model-viewer without having to worry about loading times, bandwidth or
+            performance.</p>
+        <p>Get started now at <a href="https://cloud.needle.tools">cloud.needle.tools</a></p>
+    </div>
+
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb" ar auto-rotate
         shadow-intensity="1" camera-controls touch-action="pan-y" auto-rotate autoplay field-of-view="10deg"
         max-camera-orbit="auto 90deg auto"></model-viewer>
-    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb" ar
+
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb" ar auto-rotate
         shadow-intensity="1" camera-controls touch-action="pan-y" auto-rotate autoplay
         max-camera-orbit="auto 90deg auto"></model-viewer>
+
+    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/jupiter_und_ganymed/model.glb" ar
+        auto-rotate shadow-intensity=".5" camera-controls touch-action="pan-y"></model-viewer>
+
     <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/cyberpunk/model.glb" ar auto-rotate
-        shadow-intensity=".5" camera-controls autoplay rotation-per-second="60deg"></model-viewer>
+        shadow-intensity=".5" camera-controls touch-action="pan-y" autoplay rotation-per-second="60deg"></model-viewer>
+
     <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/vase/model.glb" ar
-        shadow-intensity=".5" camera-controls></model-viewer>
+        shadow-intensity=".5" camera-controls touch-action="pan-y"></model-viewer>
+
+    <model-viewer src="https://api.cloud.needle.tools/v1/public/908aa03/29b3b3743/" ar auto-rotate shadow-intensity=".5"
+        camera-controls touch-action="pan-y" autoplay></model-viewer>
+
+    <model-viewer src="https://api.cloud.needle.tools/v1/public/9162350/2b4509376/" ar auto-rotate shadow-intensity=".5"
+        camera-controls touch-action="pan-y" autoplay></model-viewer>
+
+
+
 </div>
 
 <style>
     body {
         margin: 0;
+        background-color: rgba(245, 245, 245, 1);
+        font-family: "Open Sans", sans-serif;
+        font-optical-sizing: auto;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    a {
+        text-decoration: none;
+        color: #cb0000;
     }
 
     .layout {
         position: relative;
         width: 100%;
-        height: 100%;
+        min-height: 100%;
 
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
     }
 
-    model-viewer {
+    .layout>* {
         width: 100%;
-        height: 100%;
+        height: auto;
+        aspect-ratio: 1;
         flex: 1;
+        background: white;
+        border-radius: .3rem;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, .1);
+        outline: 1px solid white;
+    }
+
+    .card {
+        padding: 1rem;
+        max-width: calc(100vw - 2rem);
     }
 
     @media screen and (max-width: 800px) {

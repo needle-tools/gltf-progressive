@@ -4,10 +4,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.2.2-alpha.1] - 2023-06-20
+## [1.2.2-alpha.2] - 2023-06-20
 - Add: Register version in global "GLTF_PROGRESSIVE_VERSION" variable
 - Fix: LOD updates for multiple `<model-viewer>` elements
 - Fix: Initial render tick for a few frames for `<model-viewer>` to trigger LOD updates when the model-viewer element is not animated or interacted with
+- Change: `<model-viewer>` elements will fetch a slightly higher texture LOD
 
 ## [1.2.1-alpha.4] - 2023-06-19
 - Fix: SkinnedMesh bounds calculation

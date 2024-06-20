@@ -1,6 +1,9 @@
 
+const debug = getParam("debugprogressive");
 
-
+export function isDebugMode() {
+    return debug;
+}
 
 export function getParam(name: string): boolean | string {
     const url = new URL(window.location.href);

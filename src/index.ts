@@ -6,12 +6,7 @@ export * from "./utils.js"
 
 
 import { patchModelViewer } from "./plugins/modelviewer.js";
-
-// Query once for model viewer. If a user does not have model-viewer in their page, this will return null.
-document.addEventListener("DOMContentLoaded", () => {
-    patchModelViewer(document.querySelector("model-viewer") as HTMLElement);
-});
-
+patchModelViewer();
 
 import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";

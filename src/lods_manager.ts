@@ -11,6 +11,10 @@ const $lodsManager = Symbol("Needle:LODSManager");
 const $lodstate = Symbol("Needle:LODState");
 const $currentLOD = Symbol("Needle:CurrentLOD");
 
+export type LODManagerContext = {
+    engine: "three" | "needle-engine" | "model-viewer" | "react-three-fiber" | "unknown";
+}
+
 export declare type LOD_Results = { mesh_lod: number, texture_lod: number };
 
 const levels: LOD_Results = { mesh_lod: -1, texture_lod: -1 };
@@ -68,13 +72,20 @@ export class LODsManager {
      * @param renderer The renderer to get the LODsManager for.
      * @returns The LODsManager instance.
      */
-    static get(renderer: WebGLRenderer): LODsManager {
+    static get(renderer: WebGLRenderer, context?: LODManagerContext): LODsManager {
         if (renderer[$lodsManager]) {
+            console.debug("[gltf-progressive] LODsManager already exists for this renderer");
             return renderer[$lodsManager] as LODsManager;
         }
-        const lodsManager = new LODsManager(renderer);
+        const lodsManager = new LODsManager(renderer, {
+            engine: "unknown",
+            ...context,
+        });
+        renderer[$lodsManager] = lodsManager;
         return lodsManager;
     }
+
+    private readonly context: LODManagerContext;
 
     readonly renderer: WebGLRenderer;
     readonly projectionScreenMatrix = new Matrix4();
@@ -100,8 +111,9 @@ export class LODsManager {
 
     // readonly plugins: NEEDLE_progressive_plugin[] = [];
 
-    private constructor(renderer: WebGLRenderer) {
+    private constructor(renderer: WebGLRenderer, context: LODManagerContext) {
         this.renderer = renderer;
+        this.context = { ...context }
     }
 
     private _frame: number = 0;
@@ -112,6 +124,7 @@ export class LODsManager {
      */
     enable() {
         if (this._originalRender) return;
+        console.debug("[gltf-progressive] Enabling LODsManager for renderer");
         let stack = 0;
         // Save the original render method
         this._originalRender = this.renderer.render;
@@ -174,6 +187,7 @@ export class LODsManager {
                 updateLODs = false;
             }
         }
+
 
         if (updateLODs) {
             if (suppressProgressiveLoading) return;
@@ -364,6 +378,7 @@ export class LODsManager {
     }
 
     private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number, result: LOD_Results): void {
+
         if (!mesh) {
             result.mesh_lod = -1;
             result.texture_lod = -1;
@@ -416,6 +431,9 @@ export class LODsManager {
             result.texture_lod = 99;
             return;
         }
+
+        
+        const canvasHeight = this.renderer.domElement.clientHeight || this.renderer.domElement.height;
 
         let boundingBox = mesh.geometry.boundingBox;
 
@@ -498,8 +516,11 @@ export class LODsManager {
 
             const boxSize = this._tempBox.getSize(this._tempBoxSize);
             boxSize.multiplyScalar(0.5); // goes from -1..1, we want -0.5..0.5 for coverage in percent
-            if (screen.availHeight > 0)
-                boxSize.multiplyScalar(this.renderer.domElement.clientHeight / screen.availHeight); // correct for size of context on screen
+            if (screen.availHeight > 0) {
+                // correct for size of context on screen
+                if (canvasHeight > 0)
+                    boxSize.multiplyScalar(canvasHeight / screen.availHeight);
+            }
             boxSize.x *= cam.aspect;
 
             const matView = camera.matrixWorldInverse;
@@ -600,7 +621,7 @@ export class LODsManager {
             }
             else {
                 const factor = state.lastScreenCoverage * 1.5;
-                const screenSize = this.renderer.domElement.clientHeight / window.devicePixelRatio;
+                const screenSize = canvasHeight / window.devicePixelRatio;
                 const pixelSizeOnScreen = screenSize * factor;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {
                     const lod = texture_lods_minmax.lods[i];

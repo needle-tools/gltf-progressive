@@ -18,7 +18,9 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
   - [single \<model-viewer> element](https://engine.needle.tools/demos/gltf-progressive/modelviewer) 
   - [multiple \<model-viewer> elements](https://engine.needle.tools/demos/gltf-progressive/modelviewer-multiple)
 
-[Interactive Examples: Stackblitz ⚡️](https://stackblitz.com/@marwie/collections/gltf-progressive)
+**Interactive Examples**:
+- [Stackblitz](https://stackblitz.com/@marwie/collections/gltf-progressive)
+- [Codesandbox](https://codesandbox.io/dashboard/sandboxes/gltf-progressive)
 
 
 <br/>

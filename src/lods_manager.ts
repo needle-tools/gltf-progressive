@@ -1,4 +1,4 @@
-import { Box3, Box3Helper, BufferGeometry, Camera, Frustum, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, Box3Helper, BufferGeometry, Camera, Clock, Color, Frustum, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isMobileDevice } from "./utils.internal.js"
@@ -108,9 +108,11 @@ export class LODsManager {
     targetTriangleDensity: number = 200_000;
 
     /**
-     * The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 1, the LODs will be updated every second frame, etc.
+     * The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 2, the LODs will be updated every second frame, etc.
      */
-    updateInterval: number = 0;
+    updateInterval: "auto" | number = "auto";
+    #updateInterval: number = 1;
+
     /**
      * If set to true, the LODsManager will not update the LODs.
      */
@@ -131,41 +133,53 @@ export class LODsManager {
         this.context = { ...context }
     }
 
-    private _frame: number = 0;
-    private _originalRender?: (scene: Scene, camera: Camera) => void;
+
+    #originalRender?: (scene: Scene, camera: Camera) => void;
+
+    readonly #clock: Clock = new Clock();
+    #frame: number = 0;
+    #delta: number = 0;
+    #time: number = 0;
+    #fps: number = 0;
+    private _fpsBuffer: number[] = [60, 60, 60, 60, 60];
 
     /**
      * Enable the LODsManager. This will replace the render method of the renderer with a method that updates the LODs.
      */
     enable() {
-        if (this._originalRender) return;
+        if (this.#originalRender) return;
         console.debug("[gltf-progressive] Enabling LODsManager for renderer");
         let stack = 0;
         // Save the original render method
-        this._originalRender = this.renderer.render;
+        this.#originalRender = this.renderer.render;
         const self = this;
         createLoaders(this.renderer);
         this.renderer.render = function (scene: Scene, camera: Camera) {
-
             // check if this render call is rendering to a texture or the canvas
             // if it's rendering to a texture we don't want to update the LODs
             // This might need to be loosened later - e.g. we might want to update LODs for a render texture - but then we need to store the last LOD level differently and we also might not want to  perform all the plugin calls?
             const renderTarget = self.renderer.getRenderTarget();
             if (renderTarget == null) {
                 stack = 0;
-                self._frame += 1;
+                self.#frame += 1;
+                self.#delta = self.#clock.getDelta();
+                self.#time += self.#delta;
+                self._fpsBuffer.shift();
+                self._fpsBuffer.push(1 / self.#delta);
+                self.#fps = self._fpsBuffer.reduce((a, b) => a + b) / self._fpsBuffer.length;
+                if (debugProgressiveLoading && self.#frame % 30 === 0) console.log("FPS", Math.round(self.#fps), "Interval:", self.#updateInterval);
             }
-            const frame = self._frame;
+            const frame = self.#frame;
             const stack_level = stack++;
             self.onBeforeRender(scene, camera, stack_level, frame);
-            self._originalRender!.call(this, scene, camera);
+            self.#originalRender!.call(this, scene, camera);
             self.onAfterRender(scene, camera, stack_level, frame);
         };
     }
     disable() {
-        if (!this._originalRender) return;
-        this.renderer.render = this._originalRender;
-        this._originalRender = undefined;
+        if (!this.#originalRender) return;
+        this.renderer.render = this.#originalRender;
+        this.#originalRender = undefined;
     }
 
 
@@ -206,7 +220,28 @@ export class LODsManager {
 
         if (updateLODs) {
             if (suppressProgressiveLoading) return;
-            if (this.updateInterval > 0 && frame % this.updateInterval != 0) return;
+
+            // If the update interval is set to auto then we check the FPS and adjust the update interval accordingly
+            // If performance is low we increase the update interval to reduce the amount of LOD updates
+            if (this.updateInterval === "auto") {
+                if (this.#fps < 40 && this.#updateInterval < 10) {
+                    this.#updateInterval += 1;
+                    if (debugProgressiveLoading) console.warn("↓ Reducing LOD updates", this.#updateInterval, this.#fps.toFixed(0));
+                }
+                else if (this.#fps >= 80 && this.#updateInterval > 1) {
+                    this.#updateInterval -= 1;
+                    if (debugProgressiveLoading) console.warn("↑ Increasing LOD updates", this.#updateInterval, this.#fps.toFixed(0));
+                }
+            }
+            else {
+                this.#updateInterval = this.updateInterval;
+            }
+            // Check if we should update LODs this frame
+            if (this.#updateInterval > 0 && frame % this.#updateInterval != 0) {
+                return;
+            }
+
+
             this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
             this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
             const desiredDensity = this.targetTriangleDensity;
@@ -222,6 +257,9 @@ export class LODsManager {
                 currentAllowedDensity *= 1.25;
             }
             */
+
+
+
             for (const entry of opaque) {
                 if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
                     // Ignore the skybox
@@ -244,6 +282,17 @@ export class LODsManager {
                     case "MeshDistanceMaterial":
                     case "MeshDepthMaterial":
                         continue;
+                }
+
+                if (debugProgressiveLoading === "color") {
+                    if (entry.material) {
+                        if (!entry.object["progressive_debug_color"]) {
+                            entry.object["progressive_debug_color"] = true;
+                            const randomColor = Math.random() * 0xffffff;
+                            const newMaterial = new MeshStandardMaterial({ color: randomColor });
+                            (entry.object as Mesh).material = newMaterial;
+                        }
+                    }
                 }
 
                 const object = entry.object as any;

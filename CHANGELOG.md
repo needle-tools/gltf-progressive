@@ -4,7 +4,10 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.2.2-alpha.2] - 2023-06-20
+## [1.2.3-alpha] - 2023-06-24
+- Change: automatically change LOD update interval based on framerate
+
+## [1.2.2-alpha.4] - 2023-06-20
 - Add: Register version in global "GLTF_PROGRESSIVE_VERSION" variable
 - Add: `<model-viewer>` elements added document at any time are now properly registered 
 - Fix: LOD updates for multiple `<model-viewer>` elements

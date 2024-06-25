@@ -19,7 +19,7 @@ export function getRaycastMesh(obj: Object3D) {
  * @param obj the object to set the raycast mesh for
  * @param geom the raycast mesh
  */
-export function setRaycastMesh(obj: Object3D, geom: BufferGeometry) {
+export function registerRaycastMesh(obj: Object3D, geom: BufferGeometry) {
     if (obj.type === "Mesh" || obj.type === "SkinnedMesh") {
         const existing = getRaycastMesh(obj);
         if (!existing) {

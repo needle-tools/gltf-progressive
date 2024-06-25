@@ -3,7 +3,7 @@ import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
 import { getParam, resolveUrl } from "./utils.internal.js";
-import { getRaycastMesh, setRaycastMesh } from "./utils.js";
+import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 
 
@@ -622,7 +622,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         NEEDLE_progressive.lowresCache.set(key, existing);
 
         if (level > 0 && !getRaycastMesh(mesh)) {
-            setRaycastMesh(mesh, geometry);
+            registerRaycastMesh(mesh, geometry);
         }
 
 

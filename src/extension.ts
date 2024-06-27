@@ -533,7 +533,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     for (const key of this.parser.associations.keys()) {
                         if ((key as Texture).isTexture === true) {
                             const val = this.parser.associations.get(key) as { textures: number };
-                            if (val.textures === index) {
+                            if (val?.textures === index) {
                                 found = true;
                                 NEEDLE_progressive.registerTexture(this.url, key as Texture, ext.lods?.length, index, ext);
                             }
@@ -558,7 +558,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     for (const entry of this.parser.associations.keys()) {
                         if ((entry as Mesh).isMesh) {
                             const val = this.parser.associations.get(entry) as { meshes: number, primitives: number };
-                            if (val.meshes === index) {
+                            if (val?.meshes === index) {
                                 found = true;
                                 NEEDLE_progressive.registerMesh(this.url, ext.guid, entry as Mesh, ext.lods.length, val.primitives, ext);
                             }

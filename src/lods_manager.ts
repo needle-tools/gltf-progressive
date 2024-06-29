@@ -228,7 +228,7 @@ export class LODsManager {
                     this.#updateInterval += 1;
                     if (debugProgressiveLoading) console.warn("↓ Reducing LOD updates", this.#updateInterval, this.#fps.toFixed(0));
                 }
-                else if (this.#fps >= 80 && this.#updateInterval > 1) {
+                else if (this.#fps >= 60 && this.#updateInterval > 1) {
                     this.#updateInterval -= 1;
                     if (debugProgressiveLoading) console.warn("↑ Increasing LOD updates", this.#updateInterval, this.#fps.toFixed(0));
                 }
@@ -679,6 +679,8 @@ export class LODsManager {
 
         if (has_texture_lods) {
 
+            const saveDataEnabled = "saveData" in globalThis.navigator && globalThis.navigator.saveData === true;
+
             // If this is the first time a texture LOD is requested we want to get the highest LOD to not display the minimal resolution that the root glTF contains as long while we wait for loading of e.g. the 8k LOD 0 texture
             if (state.lastLodLevel_Texture < 0) {
                 result.texture_lod = texture_lods_minmax.max_count - 1;
@@ -697,6 +699,10 @@ export class LODsManager {
                 const pixelSizeOnScreen = screenSize * factor;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {
                     let lod = texture_lods_minmax.lods[i];
+
+                    if (saveDataEnabled && lod.max_height >= 2048) {
+                        continue; // skip 2k textures when saveData is enabled
+                    }
 
                     if (isMobileDevice() && lod.max_height > 4096)
                         continue; // skip 8k textures on mobile devices (for now)

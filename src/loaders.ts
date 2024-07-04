@@ -33,7 +33,12 @@ let dracoLoader: DRACOLoader;
 let meshoptDecoder: typeof MeshoptDecoder;
 let ktx2Loader: KTX2Loader;
 
-export function createLoaders(renderer: WebGLRenderer) {
+/**
+ * Create loaders/decoders for Draco, KTX2 and Meshopt to be used with GLTFLoader.
+ * @param renderer - Provide a renderer to detect KTX2 support.
+ * @returns The loaders/decoders.
+ */
+export function createLoaders(renderer: WebGLRenderer | null) {
     if (!dracoLoader) {
         dracoLoader = new DRACOLoader();
         dracoLoader.setDecoderPath(DEFAULT_DRACO_DECODER_LOCATION);
@@ -49,9 +54,10 @@ export function createLoaders(renderer: WebGLRenderer) {
     if (renderer) {
         ktx2Loader.detectSupport(renderer);
     }
-    else
-        console.warn("No renderer provided to detect ktx2 support - loading KTX2 textures will probably fail");
+    else if (renderer !== null)
+        console.warn("No renderer provided to detect ktx2 support - loading KTX2 textures might fail");
 
+    return { dracoLoader, ktx2Loader, meshoptDecoder }
 }
 
 export function addDracoAndKTX2Loaders(loader: GLTFLoader) {

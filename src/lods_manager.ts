@@ -159,7 +159,7 @@ export class LODsManager {
             // if it's rendering to a texture we don't want to update the LODs
             // This might need to be loosened later - e.g. we might want to update LODs for a render texture - but then we need to store the last LOD level differently and we also might not want to  perform all the plugin calls?
             const renderTarget = self.renderer.getRenderTarget();
-            if (renderTarget == null) {
+            if (renderTarget == null || ("isXRRenderTarget" in renderTarget && renderTarget.isXRRenderTarget)) {
                 stack = 0;
                 self.#frame += 1;
                 self.#delta = self.#clock.getDelta();

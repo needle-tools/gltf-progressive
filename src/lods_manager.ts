@@ -109,14 +109,23 @@ export class LODsManager {
 
     /**
      * The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 2, the LODs will be updated every second frame, etc.
+     * @default "auto"
      */
     updateInterval: "auto" | number = "auto";
     #updateInterval: number = 1;
 
     /**
      * If set to true, the LODsManager will not update the LODs.
+     * @default false
      */
     pause: boolean = false;
+
+    /**
+     * When set to true the LODsManager will not update the LODs. This can be used to manually update the LODs using the `update` method.  
+     * Otherwise the LODs will be updated automatically when the renderer renders the scene.
+     * @default false
+     */
+    manual: boolean = false;
 
     private readonly _lodchangedlisteners: LODChangedEventListener[] = [];
 
@@ -169,11 +178,9 @@ export class LODsManager {
                 self.#fps = self._fpsBuffer.reduce((a, b) => a + b) / self._fpsBuffer.length;
                 if (debugProgressiveLoading && self.#frame % 30 === 0) console.log("FPS", Math.round(self.#fps), "Interval:", self.#updateInterval);
             }
-            const frame = self.#frame;
             const stack_level = stack++;
-            self.onBeforeRender(scene, camera, stack_level, frame);
             self.#originalRender!.call(this, scene, camera);
-            self.onAfterRender(scene, camera, stack_level, frame);
+            self.onAfterRender(scene, camera, stack_level);
         };
     }
     disable() {
@@ -182,11 +189,12 @@ export class LODsManager {
         this.#originalRender = undefined;
     }
 
-
-    private onBeforeRender(_scene: Scene, _camera: Camera, _stack: number, _frame: number) {
+    update(scene: Scene, camera: Camera) {
+        this.internalUpdate(scene, camera);
     }
 
-    private onAfterRender(scene: Scene, camera: Camera, _stack: number, frame: number) {
+
+    private onAfterRender(scene: Scene, camera: Camera, _stack: number) {
 
         if (this.pause) return;
 
@@ -217,7 +225,6 @@ export class LODsManager {
             }
         }
 
-
         if (updateLODs) {
             if (suppressProgressiveLoading) return;
 
@@ -237,88 +244,81 @@ export class LODsManager {
                 this.#updateInterval = this.updateInterval;
             }
             // Check if we should update LODs this frame
-            if (this.#updateInterval > 0 && frame % this.#updateInterval != 0) {
+            if (this.#updateInterval > 0 && this.#frame % this.#updateInterval != 0) {
                 return;
             }
 
+            this.internalUpdate(scene, camera);
+        }
+    }
 
-            this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-            this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
-            const desiredDensity = this.targetTriangleDensity;
+    /**
+     * Update LODs in a scene
+     */
+    private internalUpdate(scene: Scene, camera: Camera) {
+        const renderList = this.renderer.renderLists.get(scene, 0);
+        const opaque = renderList.opaque;
 
-            // const isLowPerformanceDevice = false;// isMobileDevice();
+        this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+        this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
+        const desiredDensity = this.targetTriangleDensity;
 
-            // Experiment: quick & dirty performance-adaptive LODs
-            /* 
-            if (this.context.time.smoothedFps < 59) {
-                currentAllowedDensity *= 0.5;
-            }
-            else if (this.context.time.smoothedFps >= 59) {
-                currentAllowedDensity *= 1.25;
-            }
-            */
-
-
-
-            for (const entry of opaque) {
-                if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
-                    // Ignore the skybox
-                    if (entry.material.name === "SphericalGaussianBlur" || entry.material.name == "BackgroundCubeMaterial" || entry.material.name === "CubemapFromEquirect" || entry.material.name === "EquirectangularToCubeUV") {
-                        if (debugProgressiveLoading) {
-                            if (!entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"]) {
-                                entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"] = true;
-                                console.warn("Ignoring skybox or BLIT object", entry, entry.material.name, entry.material.type);
-                            }
-                        }
-                        continue;
-                    }
-                }
-
-                switch (entry.material.type) {
-                    case "LineBasicMaterial":
-                    case "LineDashedMaterial":
-                    case "PointsMaterial":
-                    case "ShadowMaterial":
-                    case "MeshDistanceMaterial":
-                    case "MeshDepthMaterial":
-                        continue;
-                }
-
-                if (debugProgressiveLoading === "color") {
-                    if (entry.material) {
-                        if (!entry.object["progressive_debug_color"]) {
-                            entry.object["progressive_debug_color"] = true;
-                            const randomColor = Math.random() * 0xffffff;
-                            const newMaterial = new MeshStandardMaterial({ color: randomColor });
-                            (entry.object as Mesh).material = newMaterial;
+        for (const entry of opaque) {
+            if (entry.material && (entry.geometry?.type === "BoxGeometry" || entry.geometry?.type === "BufferGeometry")) {
+                // Ignore the skybox
+                if (entry.material.name === "SphericalGaussianBlur" || entry.material.name == "BackgroundCubeMaterial" || entry.material.name === "CubemapFromEquirect" || entry.material.name === "EquirectangularToCubeUV") {
+                    if (debugProgressiveLoading) {
+                        if (!entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"]) {
+                            entry.material["NEEDLE_PROGRESSIVE:IGNORE-WARNING"] = true;
+                            console.warn("Ignoring skybox or BLIT object", entry, entry.material.name, entry.material.type);
                         }
                     }
+                    continue;
                 }
+            }
+            switch (entry.material.type) {
+                case "LineBasicMaterial":
+                case "LineDashedMaterial":
+                case "PointsMaterial":
+                case "ShadowMaterial":
+                case "MeshDistanceMaterial":
+                case "MeshDepthMaterial":
+                    continue;
+            }
+            if (debugProgressiveLoading === "color") {
+                if (entry.material) {
+                    if (!entry.object["progressive_debug_color"]) {
+                        entry.object["progressive_debug_color"] = true;
+                        const randomColor = Math.random() * 0xffffff;
+                        const newMaterial = new MeshStandardMaterial({ color: randomColor });
+                        (entry.object as Mesh).material = newMaterial;
+                    }
+                }
+            }
 
-                const object = entry.object as any;
-                if (object instanceof Mesh || (object.isMesh)) {
-                    this.updateLODs(scene, camera, object, desiredDensity, frame);
-                }
+            const object = entry.object as any;
+            if (object instanceof Mesh || (object.isMesh)) {
+                this.updateLODs(scene, camera, object, desiredDensity);
             }
-            const transparent = renderList.transparent;
-            for (const entry of transparent) {
-                const object = entry.object as any;
-                if (object instanceof Mesh || (object.isMesh)) {
-                    this.updateLODs(scene, camera, object, desiredDensity, frame);
-                }
+        }
+        const transparent = renderList.transparent;
+        for (const entry of transparent) {
+            const object = entry.object as any;
+            if (object instanceof Mesh || (object.isMesh)) {
+                this.updateLODs(scene, camera, object, desiredDensity);
             }
-            const transmissive = renderList.transmissive;
-            for (const entry of transmissive) {
-                const object = entry.object as any;
-                if (object instanceof Mesh || (object.isMesh)) {
-                    this.updateLODs(scene, camera, object, desiredDensity, frame);
-                }
+        }
+        const transmissive = renderList.transmissive;
+        for (const entry of transmissive) {
+            const object = entry.object as any;
+            if (object instanceof Mesh || (object.isMesh)) {
+                this.updateLODs(scene, camera, object, desiredDensity);
             }
         }
     }
 
     /** Update the LOD levels for the renderer. */
-    private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number, _frame: number) {
+    private updateLODs(scene: Scene, camera: Camera, object: Mesh, desiredDensity: number) {
 
         if (!object.userData) {
             object.userData = {};

@@ -3,6 +3,7 @@ import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./e
 import { createLoaders } from "./loaders.js"
 import { getParam, isMobileDevice } from "./utils.internal.js"
 import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
+import { getRaycastMesh } from "./utils.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");
@@ -524,8 +525,14 @@ export class LODsManager {
             }
             // Fix: https://linear.app/needle/issue/NE-5264
             else if (state.frames % 30 === 0) {
-                // TODO: we currently don't know if an object is animated
+                // use lowres geometry for bounding box calculation
+                const raycastmesh = getRaycastMesh(skinnedMesh);
+                const originalGeometry = skinnedMesh.geometry;
+                if (raycastmesh) {
+                    skinnedMesh.geometry = raycastmesh;
+                }
                 skinnedMesh.computeBoundingBox();
+                skinnedMesh.geometry = originalGeometry;
             }
             boundingBox = skinnedMesh.boundingBox;
         }

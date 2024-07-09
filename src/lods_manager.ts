@@ -507,8 +507,8 @@ export class LODsManager {
 
         if (!this.cameraFrustrum?.intersectsObject(mesh)) {
             // the object is not visible by the camera
-            result.mesh_lod = 99;
-            result.texture_lod = 99;
+            result.mesh_lod = 100;
+            result.texture_lod = 100;
             return;
         }
 
@@ -520,6 +520,11 @@ export class LODsManager {
         if (mesh.type === "SkinnedMesh") {
             const skinnedMesh = mesh as SkinnedMesh
             if (!skinnedMesh.boundingBox) {
+                skinnedMesh.computeBoundingBox();
+            }
+            // Fix: https://linear.app/needle/issue/NE-5264
+            else if (state.frames % 30 === 0) {
+                // TODO: we currently don't know if an object is animated
                 skinnedMesh.computeBoundingBox();
             }
             boundingBox = skinnedMesh.boundingBox;

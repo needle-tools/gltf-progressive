@@ -134,6 +134,12 @@ export class LODsManager {
             this._lodchangedlisteners.push(listener);
         }
     }
+    removeEventListener(evt: "changed", listener: LODChangedEventListener) {
+        if (evt === "changed") {
+            const index = this._lodchangedlisteners.indexOf(listener);
+            if (index >= 0) this._lodchangedlisteners.splice(index, 1);
+        }
+    }
 
     // readonly plugins: NEEDLE_progressive_plugin[] = [];
 

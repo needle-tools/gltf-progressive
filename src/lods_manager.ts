@@ -182,7 +182,7 @@ export class LODsManager {
                 self._fpsBuffer.shift();
                 self._fpsBuffer.push(1 / self.#delta);
                 self.#fps = self._fpsBuffer.reduce((a, b) => a + b) / self._fpsBuffer.length;
-                if (debugProgressiveLoading && self.#frame % 30 === 0) console.log("FPS", Math.round(self.#fps), "Interval:", self.#updateInterval);
+                if (debugProgressiveLoading && self.#frame % 120 === 0) console.log("FPS", Math.round(self.#fps), "Interval:", self.#updateInterval);
             }
             const stack_level = stack++;
             self.#originalRender!.call(this, scene, camera);

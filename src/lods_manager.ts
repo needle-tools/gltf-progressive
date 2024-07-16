@@ -97,7 +97,6 @@ export class LODsManager {
 
     readonly renderer: WebGLRenderer;
     readonly projectionScreenMatrix = new Matrix4();
-    readonly cameraFrustrum = new Frustum();
 
     /** @deprecated use static `LODsManager.addPlugin()` method. This getter will be removed in later versions */
     get plugins() { return plugins; }
@@ -267,7 +266,6 @@ export class LODsManager {
         const opaque = renderList.opaque;
 
         this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-        this.cameraFrustrum.setFromProjectionMatrix(this.projectionScreenMatrix, this.renderer.coordinateSystem);
         const desiredDensity = this.targetTriangleDensity;
 
         for (const entry of opaque) {
@@ -505,14 +503,6 @@ export class LODsManager {
             mesh_level_calculated = true;
             mesh_level = 0;
         }
-
-        if (!this.cameraFrustrum?.intersectsObject(mesh)) {
-            // the object is not visible by the camera
-            result.mesh_lod = 100;
-            result.texture_lod = 100;
-            return;
-        }
-
 
         const canvasHeight = this.renderer.domElement.clientHeight || this.renderer.domElement.height;
 

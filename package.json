@@ -8,6 +8,10 @@
     "email": "hi@needle.tools",
     "url": "https://needle.tools/"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/needle-tools/needle-engine-support"
+  },
   "readme": "README.md",
   "keywords": [
     "three.js",

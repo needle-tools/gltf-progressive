@@ -23,7 +23,6 @@ async function run() {
     const packageJson = JSON.parse(readFileSync(outPackageJson));
     delete packageJson.publishConfig;
     delete packageJson.scripts;
-    delete packageJson.type;
     packageJson.main = "./lib/index.js"
     packageJson.types = "./lib/index.d.ts";
     packageJson.exports["."].import = "./lib/index.js"

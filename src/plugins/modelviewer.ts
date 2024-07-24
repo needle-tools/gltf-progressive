@@ -40,6 +40,7 @@ declare type ModelViewerConstructor = CustomElementConstructor & { mapURLs: Func
  * Tries to get the mode-viewer constructor from the custom element registry. If it doesnt exist yet we will wait for it to be loaded in case it's added to the document at a later point
  */
 function tryGetModelViewerConstructor(): ModelViewerConstructor | null {
+    if (typeof customElements === 'undefined') return null;
     // If model-viewer is already registered we can ignore this
     const ModelViewerElement = customElements.get('model-viewer')
     if (ModelViewerElement) return ModelViewerElement as ModelViewerConstructor;
@@ -53,6 +54,7 @@ function tryGetModelViewerConstructor(): ModelViewerConstructor | null {
 
 
 function searchModelViewers() {
+    if (typeof document === 'undefined') return;
     // Query once for model viewer. If a user does not have model-viewer in their page, this will return null.
     const modelviewers = document.querySelectorAll("model-viewer");
     modelviewers.forEach((modelviewer) => {

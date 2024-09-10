@@ -380,13 +380,19 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             if (debug) debug_materials.add(material);
 
             // Handle custom shaders / uniforms progressive textures. This includes support for VRM shaders
-            if ((material as ShaderMaterial).uniforms && (material as RawShaderMaterial).isRawShaderMaterial || (material as ShaderMaterial).isShaderMaterial === true) {
+            if ((material as ShaderMaterial).uniforms && ((material as RawShaderMaterial).isRawShaderMaterial || (material as ShaderMaterial).isShaderMaterial === true)) {
                 // iterate uniforms of custom shaders
                 const shaderMaterial = material as ShaderMaterial;
                 for (const slot of Object.keys(shaderMaterial.uniforms)) {
                     const val = shaderMaterial.uniforms[slot].value as Texture;
                     if (val?.isTexture === true) {
-                        const task = this.assignTextureLODForSlot(val, level, material, slot);
+                        const task = this.assignTextureLODForSlot(val, level, material, slot).then(res => {
+                            if (res && shaderMaterial.uniforms[slot].value != res) {
+                                shaderMaterial.uniforms[slot].value = res;
+                                shaderMaterial.uniformsNeedUpdate = true;
+                            }
+                            return res;
+                        })
                         promises.push(task);
                         slots.push(slot);
                     }

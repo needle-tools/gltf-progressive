@@ -5,13 +5,20 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 
-let DEFAULT_DRACO_DECODER_LOCATION = 'https://www.gstatic.com/draco/versioned/decoders/1.4.1/';
+
+let DEFAULT_DRACO_DECODER_LOCATION = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
 let DEFAULT_KTX2_TRANSCODER_LOCATION = 'https://www.gstatic.com/basis-universal/versioned/2021-04-15-ba1c3e4/';
+const defaultDraco = DEFAULT_DRACO_DECODER_LOCATION;
+const defaultKTX2 = DEFAULT_KTX2_TRANSCODER_LOCATION;
 
 fetch(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js", { method: "head" })
     .catch(_ => {
-        DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
-        DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
+        // check if the default values have been changed by the user. 
+        // If they didnt change / the default paths are not reachable, fall back to local versions
+        if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco)
+            DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
+        if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2)
+            DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
     });
 
 /**

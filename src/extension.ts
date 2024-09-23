@@ -339,7 +339,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             mesh.geometry = geo;
                             if (debug) registerDebug(mesh, "geometry", lodinfo.url);
                         }
-                        else if(debug) {
+                        else if (debug) {
                             console.error("Invalid LOD geometry", geo);
                         }
                     }
@@ -367,10 +367,36 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * @param level the level of detail to load (0 is the highest resolution) - currently only 0 is supported
      * @returns a promise that resolves to the material or texture with the requested LOD level
      */
-    static assignTextureLOD(materialOrTexture: Material | Texture, level: number = 0)
+    static assignTextureLOD(materialOrTexture: Material, level: number): Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>;
+    static assignTextureLOD(materialOrTexture: Mesh, level: number): Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>;
+    static assignTextureLOD(materialOrTexture: Texture, level: number): Promise<Texture | null>;
+    static assignTextureLOD(materialOrTexture: Material | Texture | Mesh, level: number = 0)
         : Promise<Array<ProgressiveMaterialTextureLoadingResult> | Texture | null> {
 
         if (!materialOrTexture) return Promise.resolve(null);
+
+        if ((materialOrTexture as unknown as Mesh).isMesh === true) {
+            const mesh = materialOrTexture as Mesh;
+            if (Array.isArray(mesh.material)) {
+                const arr = new Array<Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>>();
+                for (const mat of mesh.material) {
+                    const promise = this.assignTextureLOD(mat, level);
+                    arr.push(promise);
+                }
+                return Promise.all(arr).then(res => {
+                    const textures = new Array<ProgressiveMaterialTextureLoadingResult>();
+                    for (const tex of res) {
+                        if (Array.isArray(tex)) {
+                            textures.push(...tex);
+                        }
+                    }
+                    return textures;
+                });
+            }
+            else {
+                return this.assignTextureLOD(mesh.material, level);
+            }
+        }
 
         if (materialOrTexture instanceof Material || (materialOrTexture as unknown as Material).isMaterial === true) {
             const material = materialOrTexture as Material;
@@ -424,8 +450,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             });
         }
 
-        if (materialOrTexture instanceof Texture || (materialOrTexture as Texture).isTexture === true) {
-            const texture = materialOrTexture;
+        if (materialOrTexture instanceof Texture || (materialOrTexture as unknown as Texture).isTexture === true) {
+            const texture = materialOrTexture as Texture;
             return this.assignTextureLODForSlot(texture, level, null, null);
         }
 

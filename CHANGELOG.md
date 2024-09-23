@@ -4,6 +4,10 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.2.12] - 2024-09-23
+- Add: `assignTextureLOD` now also accepts mesh as parameter
+- Change: improved `assignTextureLOD` typing
+
 ## [1.2.11] - 2024-09-11
 - Fix: draco and KTX decoder path handling when gstatic can not be reached and user set path
 

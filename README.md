@@ -1,12 +1,14 @@
 # glTF progressive
 
-Support for loading of glTF or GLB files with progressive mesh or texture data for three.js based engines.
+LODs on steroids for glTF, GLB or VRM files with density based loading for meshes or texture for any three.js based project.
 
 ## Features
-- Automatic loading of mesh and texture LODs.   
-- High quality LOD levels are loaded on demand based on screen density.
-- Use low-poly LOD meshes for raycasting which allows the usage of high-poly meshes with smooth interaction
-- Use [cloud.needle.tools](https://cloud.needle.tools) for processing glTF, GLB & VRM assets
+- One line integration in any three.js based engine/project
+- Mesh LOD support
+- Texture LOD support
+- LOD levels are loaded on demand based on mesh screen density
+- Low poly LOD meshes can easily be used for raycasting for smooth interactions with high-poly meshes
+- Cloud generation and loading support via [cloud.needle.tools](https://cloud.needle.tools) for glTF, GLB & VRM assets
 
 ## Examples
 
@@ -18,6 +20,7 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
   - [single \<model-viewer> element](https://engine.needle.tools/demos/gltf-progressive/modelviewer) 
   - [multiple \<model-viewer> elements](https://engine.needle.tools/demos/gltf-progressive/modelviewer-multiple)
 - [Needle Engine](https://stackblitz.com/edit/needle-engine-gltf-progressive?file=src%2Fmain.ts)
+- [Progressive VRM 14 MB to 1 MB](https://cloud.needle.tools/view/91b4450/262927895)
 
 **Interactive Examples**:
 - [Stackblitz](https://stackblitz.com/@marwie/collections/gltf-progressive)
@@ -114,7 +117,10 @@ The example can be found in `examples/modelviewer.html`
 
 ### Needle Engine
 
-[Needle Engine](https://needle.tools) natively supports progressive loading of these glTF files! See [docs.needle.tools](https://docs.needle.tools) for more information.
+[Needle Engine](https://needle.tools) natively supports progressive loading of these glTF files! See [docs.needle.tools](https://docs.needle.tools) for more information. 
+
+
+Use [cloud.needle.tools](https://cloud.needle.tools) to generate LODs for your assets now.
 
 
 # Contact ✒️

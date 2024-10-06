@@ -6,6 +6,7 @@ export function isDebugMode() {
 }
 
 export function getParam(name: string): boolean | string {
+    if (typeof window === "undefined") return false;
     const url = new URL(window.location.href);
     const param = url.searchParams.get(name);
     if (param == null || param === "0" || param === "false") return false;

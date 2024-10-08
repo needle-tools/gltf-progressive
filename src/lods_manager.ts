@@ -1,4 +1,4 @@
-import { Box3, Box3Helper, BufferGeometry, Camera, Clock, Color, Frustum, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isMobileDevice } from "./utils.internal.js"

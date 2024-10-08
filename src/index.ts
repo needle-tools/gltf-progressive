@@ -2,7 +2,7 @@ export { version as VERSION } from "./version.js"
 
 export * from "./extension.js"
 export * from "./plugins/index.js"
-export { LODsManager } from "./lods_manager.js"
+export { LODsManager, type LOD_Results } from "./lods_manager.js"
 export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders } from "./loaders.js"
 export * from "./utils.js"
 

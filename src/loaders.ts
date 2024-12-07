@@ -1,4 +1,3 @@
-
 import { WebGLRenderer } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -74,11 +73,32 @@ export function addDracoAndKTX2Loaders(loader: GLTFLoader) {
         loader.setKTX2Loader(ktx2Loader);
     if (!(loader as any).meshoptDecoder)
         loader.setMeshoptDecoder(meshoptDecoder);
-
-    
-    // Maybe we should get the GLTFLoader via getHandler
-    // and then set the requestHeader there when the progressive gltf feature gets enabled?
-    // DefaultLoadingManager.getHandler()
-    loader.requestHeader["X-Needle-Progressive"] = "1";
 }
 
+
+/**
+ * Smart loading hints can be used by needle infrastructure to deliver assets optimized for a specific usecase.
+ */
+export type SmartLoadingHints = {
+    progressive: boolean,
+    usecase?: "product",
+}
+
+export function configureLoader(loader:GLTFLoader, opts: SmartLoadingHints) {
+
+    if(opts.progressive) {
+        loader.requestHeader["X-Needle-Progressive"] = "1";
+    }
+    else {
+        loader.requestHeader["X-Needle-Progressive"] = "0";
+    }
+
+    switch(opts.usecase) {
+        case "product":
+            loader.requestHeader["X-Needle-Progressive-UseCase"] = "product";
+            break;
+        default:
+            loader.requestHeader["X-Needle-Progressive-UseCase"] = "default";
+            break;
+    }
+}

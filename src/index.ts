@@ -3,19 +3,26 @@ export { version as VERSION } from "./version.js"
 export * from "./extension.js"
 export * from "./plugins/index.js"
 export { LODsManager, type LOD_Results } from "./lods_manager.js"
-export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders } from "./loaders.js"
+export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders, configureLoader } from "./loaders.js"
 export * from "./utils.js"
 
 
 import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { addDracoAndKTX2Loaders, createLoaders } from "./loaders.js";
+import { addDracoAndKTX2Loaders, configureLoader, createLoaders, SmartLoadingHints } from "./loaders.js";
 import { NEEDLE_progressive } from "./extension.js";
 import { LODsManager } from "./lods_manager.js";
 
-declare class UseNeedleGLTFProgressive {
+declare type UseNeedleGLTFProgressiveOptions = {
+    /**
+     * When set to true the LODs manager will automatically be enabled
+     */
     enableLODsManager?: boolean;
-};
+    /**
+     * Smart loading hints can be used by needle infrastructure to deliver assets optimized for a specific usecase.
+     */
+    hints?: Omit<SmartLoadingHints, "progressive">;
+}
 
 /** Use this function to enable progressive loading of gltf models.
  * @param url The url of the gltf model.
@@ -32,9 +39,13 @@ declare class UseNeedleGLTFProgressive {
  * return <primitive object={scene} />
  * ```
  */
-export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loader: GLTFLoader, opts?: UseNeedleGLTFProgressive) {
+export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loader: GLTFLoader, opts?: UseNeedleGLTFProgressiveOptions) {
     createLoaders(renderer);
     addDracoAndKTX2Loaders(loader);
+    configureLoader(loader, {
+        progressive: true,
+        ...opts?.hints,
+    });
     loader.register(p => new NEEDLE_progressive(p, url));
 
     const lod = LODsManager.get(renderer);

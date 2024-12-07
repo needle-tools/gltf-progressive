@@ -74,4 +74,11 @@ export function addDracoAndKTX2Loaders(loader: GLTFLoader) {
         loader.setKTX2Loader(ktx2Loader);
     if (!(loader as any).meshoptDecoder)
         loader.setMeshoptDecoder(meshoptDecoder);
+
+    
+    // Maybe we should get the GLTFLoader via getHandler
+    // and then set the requestHeader there when the progressive gltf feature gets enabled?
+    // DefaultLoadingManager.getHandler()
+    loader.requestHeader["X-Needle-Progressive"] = "1";
 }
+

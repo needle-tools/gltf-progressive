@@ -109,8 +109,8 @@ function onLoad(this: GLTFLoader, ...args: ArgumentTypes<typeof GLTFLoader.proto
 
     if (url.hostname.endsWith("needle.tools")) {
 
-        const progressive = config ? config.progressive : true;
-        const usecase = config?.usecase ? config.usecase : "default";
+        const progressive: boolean = config?.progressive !== undefined ? config.progressive : true;
+        const usecase: string = config?.usecase ? config.usecase : "default";
 
         if (progressive) {
             this.requestHeader["Accept"] = `*/*;progressive=allowed;usecase=${usecase}`;

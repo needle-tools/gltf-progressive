@@ -1,4 +1,4 @@
-import { WebGLRenderer } from 'three';
+import { FileLoader, WebGLRenderer } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -80,25 +80,50 @@ export function addDracoAndKTX2Loaders(loader: GLTFLoader) {
  * Smart loading hints can be used by needle infrastructure to deliver assets optimized for a specific usecase.
  */
 export type SmartLoadingHints = {
-    progressive: boolean,
+    progressive?: boolean,
     usecase?: "product",
 }
 
-export function configureLoader(loader:GLTFLoader, opts: SmartLoadingHints) {
+const gltfLoaderConfigurations: WeakMap<GLTFLoader, SmartLoadingHints> = new WeakMap();
 
-    if(opts.progressive) {
-        loader.requestHeader["X-Needle-Progressive"] = "1";
+export function configureLoader(loader: GLTFLoader, opts: SmartLoadingHints) {
+    let config = gltfLoaderConfigurations.get(loader);
+    if (config) {
+        config = Object.assign(config, opts);
     }
     else {
-        loader.requestHeader["X-Needle-Progressive"] = "0";
+        config = opts;
+    }
+    gltfLoaderConfigurations.set(loader, config);
+
+}
+
+const originalLoadFunction = GLTFLoader.prototype.load;
+type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
+function onLoad(this: GLTFLoader, ...args: ArgumentTypes<typeof GLTFLoader.prototype.load>) {
+
+    const config = gltfLoaderConfigurations.get(this);
+    let url_str = args[0];
+
+    const url = new URL(url_str, window.location.href);
+
+    if (url.hostname.endsWith("needle.tools")) {
+
+        const progressive = config ? config.progressive : true;
+        const usecase = config ? config.usecase : "default";
+
+        if (progressive) {
+            this.requestHeader["Accept"] = `*/*;progressive=allowed;usecase=${usecase}`;
+        }
+        else {
+            this.requestHeader["Accept"] = `*/*;usecase=${usecase}`;
+        }
+
+        url_str = url.toString();
     }
 
-    switch(opts.usecase) {
-        case "product":
-            loader.requestHeader["X-Needle-Progressive-UseCase"] = "product";
-            break;
-        default:
-            loader.requestHeader["X-Needle-Progressive-UseCase"] = "default";
-            break;
-    }
+    args[0] = url_str;
+    const res = originalLoadFunction?.call(this, ...args);
+    return res;
 }
+GLTFLoader.prototype.load = onLoad;

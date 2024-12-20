@@ -191,6 +191,7 @@ export class LODsManager {
     }
     disable() {
         if (!this.#originalRender) return;
+        console.debug("[gltf-progressive] Disabling LODsManager for renderer");
         this.renderer.render = this.#originalRender;
         this.#originalRender = undefined;
     }

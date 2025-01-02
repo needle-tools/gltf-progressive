@@ -459,6 +459,7 @@ export class LODsManager {
 
     private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number, result: LOD_Results): void {
 
+        
         if (!mesh) {
             result.mesh_lod = -1;
             result.texture_lod = -1;
@@ -706,10 +707,11 @@ export class LODsManager {
                 }
             }
             else {
+                // TODO: should we use the volume as a factor instead?
                 const volume = state.lastScreenspaceVolume.x + state.lastScreenspaceVolume.y + state.lastScreenspaceVolume.z;
-                let factor = state.lastScreenCoverage * 2;
+                let factor = state.lastScreenCoverage * 4;
                 if (this.context?.engine === "model-viewer") {
-                    factor *= 2;
+                    factor *= 1.5;
                 }
                 const screenSize = canvasHeight / window.devicePixelRatio;
                 const pixelSizeOnScreen = screenSize * factor;

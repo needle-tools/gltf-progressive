@@ -326,12 +326,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             // const info = this.onProgressiveLoadStart(context, source, mesh, null);
             mesh["LOD:requested level"] = level;
             return NEEDLE_progressive.getOrLoadLOD<BufferGeometry>(currentGeometry, level).then(geo => {
+                if (Array.isArray(geo)) {
+                    const index = lodinfo.index || 0;
+                    geo = geo[index];
+                }
                 if (mesh["LOD:requested level"] === level) {
                     delete mesh["LOD:requested level"];
-                    if (Array.isArray(geo)) {
-                        const index = lodinfo.index || 0;
-                        geo = geo[index];
-                    }
+
                     if (geo && currentGeometry != geo) {
                         const isGeometry = (geo as BufferGeometry)?.isBufferGeometry;
                         // if (debug == "verbose") console.log("Progressive Mesh " + mesh.name + " loaded", currentGeometry, "→", geo, "\n", mesh)

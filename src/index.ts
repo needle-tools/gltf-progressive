@@ -62,5 +62,21 @@ import { patchModelViewer } from "./plugins/modelviewer.js";
 patchModelViewer();
 
 
+import { getRaycastMesh, useRaycastMeshes } from "./utils.js"
 
-
+const global = {
+    gltfProgressive: {
+        useNeedleProgressive,
+        LODsManager,
+        configureLoader,
+        getRaycastMesh,
+        useRaycastMeshes,
+    }
+}
+if (!globalThis["Needle"]) {
+    globalThis["Needle"] = global;
+} else {
+    for (const key in global) {
+        globalThis["Needle"][key] = global[key];
+    }
+}

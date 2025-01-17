@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.1.0-alpha.2] - 2025-01-17
+- Add: expose methods in globalThis/window at `Needle.gltfProgressive`
+
 ## [2.1.0-alpha.1] - 2025-01-15
 - Fix: issue where `getMeshLOD` for multi-material meshes would not return the correct index if called multiple times at the same time 
 

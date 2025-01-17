@@ -4,7 +4,7 @@ export * from "./extension.js"
 export * from "./plugins/index.js"
 export { LODsManager, type LOD_Results } from "./lods_manager.js"
 export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders, configureLoader } from "./loaders.js"
-export * from "./utils.js"
+export { getRaycastMesh, registerRaycastMesh, useRaycastMeshes } from "./utils.js"
 
 
 import { WebGLRenderer } from "three";
@@ -62,21 +62,23 @@ import { patchModelViewer } from "./plugins/modelviewer.js";
 patchModelViewer();
 
 
-import { getRaycastMesh, useRaycastMeshes } from "./utils.js"
+import { getRaycastMesh, isSSR, useRaycastMeshes } from "./utils.js"
 
-const global = {
-    gltfProgressive: {
-        useNeedleProgressive,
-        LODsManager,
-        configureLoader,
-        getRaycastMesh,
-        useRaycastMeshes,
+if (!isSSR) {
+    const global = {
+        gltfProgressive: {
+            useNeedleProgressive,
+            LODsManager,
+            configureLoader,
+            getRaycastMesh,
+            useRaycastMeshes,
+        }
     }
-}
-if (!globalThis["Needle"]) {
-    globalThis["Needle"] = global;
-} else {
-    for (const key in global) {
-        globalThis["Needle"][key] = global[key];
+    if (!globalThis["Needle"]) {
+        globalThis["Needle"] = global;
+    } else {
+        for (const key in global) {
+            globalThis["Needle"][key] = global[key];
+        }
     }
 }

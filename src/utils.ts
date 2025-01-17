@@ -1,5 +1,7 @@
 import { BufferGeometry, Intersection, Mesh, Object3D, Raycaster } from "three";
 
+export const isSSR = typeof window === "undefined" && typeof document === "undefined";
+
 const $raycastmesh = Symbol("needle:raycast-mesh");
 
 /**

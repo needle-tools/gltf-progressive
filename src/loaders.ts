@@ -10,7 +10,17 @@ let DEFAULT_KTX2_TRANSCODER_LOCATION = 'https://www.gstatic.com/basis-universal/
 const defaultDraco = DEFAULT_DRACO_DECODER_LOCATION;
 const defaultKTX2 = DEFAULT_KTX2_TRANSCODER_LOCATION;
 
-fetch(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js", { method: "head" })
+const _remoteDracoDecoderUrl = new URL(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js");
+fetch(_remoteDracoDecoderUrl, {
+    method: "head",
+    mode: "no-cors",
+    headers: {
+        "Range": "bytes=0-1"
+    }
+})
+    .then(() => {
+        console.debug("Draco Head response", _remoteDracoDecoderUrl);
+    })
     .catch(_ => {
         // check if the default values have been changed by the user. 
         // If they didnt change / the default paths are not reachable, fall back to local versions
@@ -18,7 +28,10 @@ fetch(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js", { method: "head" })
             DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
         if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2)
             DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
-    });
+    })
+    .finally(() => {
+        prepareLoaders();
+    })
 
 /**
  * Set the location of the Draco decoder.
@@ -35,9 +48,28 @@ export function setKTX2TranscoderLocation(location: string) {
     DEFAULT_KTX2_TRANSCODER_LOCATION = location;
 }
 
+
 let dracoLoader: DRACOLoader;
 let meshoptDecoder: typeof MeshoptDecoder;
 let ktx2Loader: KTX2Loader;
+
+/** Used to create and load loaders */
+function prepareLoaders() {
+    if (!dracoLoader) {
+        dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath(DEFAULT_DRACO_DECODER_LOCATION);
+        dracoLoader.setDecoderConfig({ type: 'js' });
+        dracoLoader.preload();
+    }
+    if (!ktx2Loader) {
+        ktx2Loader = new KTX2Loader();
+        ktx2Loader.setTranscoderPath(DEFAULT_KTX2_TRANSCODER_LOCATION);
+        ktx2Loader.init();
+    }
+    if (!meshoptDecoder) {
+        meshoptDecoder = MeshoptDecoder;
+    }
+}
 
 /**
  * Create loaders/decoders for Draco, KTX2 and Meshopt to be used with GLTFLoader.
@@ -45,18 +77,8 @@ let ktx2Loader: KTX2Loader;
  * @returns The loaders/decoders.
  */
 export function createLoaders(renderer: WebGLRenderer | null) {
-    if (!dracoLoader) {
-        dracoLoader = new DRACOLoader();
-        dracoLoader.setDecoderPath(DEFAULT_DRACO_DECODER_LOCATION);
-        dracoLoader.setDecoderConfig({ type: 'js' });
-    }
-    if (!ktx2Loader) {
-        ktx2Loader = new KTX2Loader();
-        ktx2Loader.setTranscoderPath(DEFAULT_KTX2_TRANSCODER_LOCATION);
-    }
-    if (!meshoptDecoder) {
-        meshoptDecoder = MeshoptDecoder;
-    }
+    prepareLoaders();
+
     if (renderer) {
         ktx2Loader.detectSupport(renderer);
     }

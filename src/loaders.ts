@@ -11,16 +11,23 @@ const defaultDraco = DEFAULT_DRACO_DECODER_LOCATION;
 const defaultKTX2 = DEFAULT_KTX2_TRANSCODER_LOCATION;
 
 const _remoteDracoDecoderUrl = new URL(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js");
+// if (typeof window !== "undefined") {
+//     if (!window.navigator.onLine) {
+//         // check if the default values have been changed by the user. 
+//         // If they didnt change / the default paths are not reachable, fall back to local versions
+//         if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco)
+//             DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
+//         if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2)
+//             DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
+//     }
+//     prepareLoaders();
+// }
 fetch(_remoteDracoDecoderUrl, {
-    method: "head",
-    mode: "no-cors",
+    method: "GET",
     headers: {
         "Range": "bytes=0-1"
     }
 })
-    .then(() => {
-        console.debug("Draco Head response", _remoteDracoDecoderUrl);
-    })
     .catch(_ => {
         // check if the default values have been changed by the user. 
         // If they didnt change / the default paths are not reachable, fall back to local versions

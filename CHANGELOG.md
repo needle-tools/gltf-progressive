@@ -4,6 +4,10 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [2.1.0-alpha.3] - 2025-01-21
+- Change: Load Draco and KTX loaders as soon as possible
+- Fix: Make `GET` request to draco endpoint with 1 byte range instead of HEAD request. The HEAD request did return the whole draco loader.
+
 ## [2.1.0-alpha.2] - 2025-01-17
 - Add: expose methods in globalThis/window at `Needle.gltfProgressive`
 

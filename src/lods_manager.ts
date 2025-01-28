@@ -715,6 +715,7 @@ export class LODsManager {
                 }
                 const screenSize = canvasHeight / window.devicePixelRatio;
                 const pixelSizeOnScreen = screenSize * factor;
+                let foundLod = false;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {
                     let lod = texture_lods_minmax.lods[i];
 
@@ -725,7 +726,8 @@ export class LODsManager {
                     if (isMobileDevice() && lod.max_height > 4096)
                         continue; // skip 8k textures on mobile devices (for now)
 
-                    if (lod.max_height > pixelSizeOnScreen) {
+                    if (lod.max_height > pixelSizeOnScreen || (!foundLod && i === 0)) {
+                        foundLod = true;
                         result.texture_lod = i;
                         if (result.texture_lod < state.lastLodLevel_Texture) {
                             const lod_pixel_height = lod.max_height;

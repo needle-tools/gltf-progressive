@@ -1,4 +1,4 @@
-import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isMobileDevice } from "./utils.internal.js"
@@ -529,8 +529,8 @@ export class LODsManager {
             boundingBox = skinnedMesh.boundingBox;
         }
 
-        if (boundingBox && (camera as PerspectiveCamera).isPerspectiveCamera) {
-            const cam = camera as PerspectiveCamera;
+        if (boundingBox) {
+            const cam = camera;
 
             // hack: if the mesh has vertex colors, has less than 100 vertices we always select the highest LOD
             if (mesh.geometry.attributes.color && mesh.geometry.attributes.color.count < 100) {
@@ -558,7 +558,7 @@ export class LODsManager {
             // High distortions would lead to lower LOD levels.
             // "Centrality" of the calculated screen-space bounding box could be a factor here –
             // what's the distance of the bounding box to the center of the screen?
-            if (LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
+            if ((cam as PerspectiveCamera).isPerspectiveCamera && LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
                 result.mesh_lod = 0;
                 result.texture_lod = 0;
                 return;
@@ -567,7 +567,7 @@ export class LODsManager {
 
             // TODO might need to be adjusted for cameras that are rendered during an XR session but are 
             // actually not XR cameras (e.g. a render texture)
-            if (this.renderer.xr.enabled && cam.fov > 70) {
+            if (this.renderer.xr.enabled && ((cam as PerspectiveCamera).isPerspectiveCamera) && (cam as PerspectiveCamera).fov > 70) {
                 // calculate centrality of the bounding box - how close is it to the screen center
                 const min = this._tempBox.min;
                 const max = this._tempBox.max;
@@ -605,7 +605,13 @@ export class LODsManager {
                 if (canvasHeight > 0)
                     boxSize.multiplyScalar(canvasHeight / screen.availHeight);
             }
-            boxSize.x *= cam.aspect;
+            if ((camera as PerspectiveCamera).isPerspectiveCamera) {
+                boxSize.x *= (camera as PerspectiveCamera).aspect;
+            }
+            else if ((camera as OrthographicCamera).isOrthographicCamera) {
+                // const cam = camera as OrthographicCamera;
+                // boxSize.x *= cam.zoom * .01;
+            }
 
             const matView = camera.matrixWorldInverse;
             const box2 = this._tempBox2;

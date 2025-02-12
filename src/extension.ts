@@ -42,14 +42,13 @@ if (debug) {
                 if ((cur as BufferGeometry).isBufferGeometry === true) {
                     const info = NEEDLE_progressive.getMeshLODInformation(cur);
                     const level = !info ? 0 : Math.min(currentDebugLodLevel, info.lods.length);
-                    obj["DEBUG:LOD"] = currentDebugLodLevel;
-                    NEEDLE_progressive.assignMeshLOD(obj as Mesh, level);
+                    obj["DEBUG:LOD"] = level;
+                    // NEEDLE_progressive.assignMeshLOD(obj as Mesh, level);
                     if (info) maxLevel = Math.max(maxLevel, info.lods.length - 1);
                 }
                 else if ((obj as Material).isMaterial === true) {
                     obj["DEBUG:LOD"] = currentDebugLodLevel;
-                    NEEDLE_progressive.assignTextureLOD(obj as Material, currentDebugLodLevel);
-                    break;
+                    // NEEDLE_progressive.assignTextureLOD(obj as Material, currentDebugLodLevel);
                 }
             }
         });
@@ -399,7 +398,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
         }
 
-        if (materialOrTexture instanceof Material || (materialOrTexture as unknown as Material).isMaterial === true) {
+        if ((materialOrTexture as unknown as Material).isMaterial === true) {
             const material = materialOrTexture as Material;
             const promises: Array<Promise<Texture | null>> = [];
             const slots = new Array<string>();
@@ -460,7 +459,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     }
 
     private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null): Promise<Texture | null> {
-        if (current?.isTexture !== true) return Promise.resolve(null);
+        if (current?.isTexture !== true) {
+            return Promise.resolve(null);
+        }
 
         if (slot === "glyphMap") {
             return Promise.resolve(current);
@@ -478,7 +479,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         const assigned = material[slot] as Texture;
                         // Check if the assigned texture LOD is higher quality than the current LOD
                         // This is necessary for cases where e.g. a texture is updated via an explicit call to assignTextureLOD
-                        if (assigned) {
+                        if (assigned && !debug) {
                             const assignedLOD = this.getAssignedLODInformation(assigned);
                             if (assignedLOD && assignedLOD?.level < level) {
                                 if (debug === "verbose")
@@ -493,6 +494,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (debug && slot && material) {
                         const lodinfo = this.getAssignedLODInformation(current);
                         if (lodinfo) registerDebug(material, slot, lodinfo.url);
+                        else console.warn("No LOD info for texture", current);
                     }
 
                     // check if the old texture is still used by other objects
@@ -941,8 +943,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         // This should only happen once ever for every texture
         // const original = target;
         {
+            if (debug) console.warn("Copy texture settings\n", source.uuid, "\n", target.uuid);
             target = target.clone();
-            if (debug) console.warn("Copying texture settings\n", source.uuid, "\n", target.uuid);
         }
         // else {
         //     source = existingCopy;

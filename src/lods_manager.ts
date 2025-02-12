@@ -358,8 +358,6 @@ export class LODsManager {
         let textureLOD = levels.texture_lod;
 
         if (object.material && textureLOD >= 0) {
-            const debugLevel = object["DEBUG:LOD"];
-            if (debugLevel != undefined) textureLOD = debugLevel;
             this.loadProgressiveTextures(object.material, textureLOD);
         }
 
@@ -396,6 +394,13 @@ export class LODsManager {
         else if (level < material[$currentLOD]) {
             update = true;
         }
+        
+        const debugLevel = material["DEBUG:LOD"];
+        if (debugLevel != undefined) {
+            update = material[$currentLOD] != debugLevel;
+            level = debugLevel;
+        }
+
         if (update) {
             material[$currentLOD] = level;
             NEEDLE_progressive.assignTextureLOD(material, level).then(_ => {
@@ -412,7 +417,17 @@ export class LODsManager {
      */
     private loadProgressiveMeshes(mesh: Mesh, level: number): Promise<BufferGeometry | null> {
         if (!mesh) return Promise.resolve(null);
-        if (mesh[$currentLOD] !== level) {
+
+        let update = mesh[$currentLOD] !== level;
+
+        const debugLevel = mesh["DEBUG:LOD"];
+        if (debugLevel != undefined) {
+            update = mesh[$currentLOD] != debugLevel;
+            level = debugLevel;
+        }
+
+
+        if (update) {
             mesh[$currentLOD] = level;
             const originalGeometry = mesh.geometry;
             return NEEDLE_progressive.assignMeshLOD(mesh, level).then(res => {
@@ -459,7 +474,7 @@ export class LODsManager {
 
     private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number, result: LOD_Results): void {
 
-        
+
         if (!mesh) {
             result.mesh_lod = -1;
             result.texture_lod = -1;

@@ -46,7 +46,7 @@ async function run() {
     postprocessExamples();
 
     // publish to npm
-    let cmd = isDryRun ? "npm publish --tag latest --dry-run" : "npm publish";
+    let cmd = isDryRun ? "npm publish --tag latest --dry-run" : "npm publish --tag latest";
     cmd = "npm set registry https://registry.npmjs.org && " + cmd;
     console.log("Begin publish..." + (isDryRun ? " (dry run)" : ""));
     console.log(`Directory: \"${outDir}\"`);

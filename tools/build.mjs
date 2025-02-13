@@ -46,9 +46,9 @@ async function run() {
     postprocessExamples();
 
     // publish to npm
-    let cmd = isDryRun ? "npm publish --tag latest --dry-run" : "npm publish --tag latest";
+    let cmd = isDryRun ? "npm publish --dry-run --tag latest" : "npm publish --tag latest";
     cmd = "npm set registry https://registry.npmjs.org && " + cmd;
-    console.log("Begin publish..." + (isDryRun ? " (dry run)" : ""));
+    console.log(`Begin publish...${isDryRun ? " (dry run)" : ""} to npm using command: \"${cmd}\"`);
     console.log(`Directory: \"${outDir}\"`);
     execSync(cmd, { cwd: outDir, stdio: "inherit" });
     console.log("Finished publish!" + (isDryRun ? " (dry run)" : ""))

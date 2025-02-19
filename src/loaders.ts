@@ -42,7 +42,7 @@ fetch(_remoteDracoDecoderUrl, {
 
 /**
  * Set the location of the Draco decoder.
- * @default 'https://www.gstatic.com/draco/versioned/decoders/1.4.1/'
+ * @default 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
  */
 export function setDracoDecoderLocation(location: string) {
     DEFAULT_DRACO_DECODER_LOCATION = location;

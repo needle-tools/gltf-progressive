@@ -931,6 +931,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     // private static readonly _copiedTextures: WeakMap<Texture, Texture> = new Map();
 
     private static copySettings(source: Texture, target: Texture): Texture {
+        if (!target) {
+            return source;
+        }
         // const existingCopy = source["LODS:COPY"];
         // don't copy again if the texture was processed before
         // we clone the source if it's animated

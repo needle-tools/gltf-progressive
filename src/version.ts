@@ -3,4 +3,4 @@ export const version = "";
 
 globalThis["GLTF_PROGRESSIVE_VERSION"] = version
 
-console.debug(`[gltf-progressive] version ${version}`)
+console.debug(`[gltf-progressive] version ${version || "-"}`)

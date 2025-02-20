@@ -29,12 +29,15 @@ fetch(_remoteDracoDecoderUrl, {
     }
 })
     .catch(_ => {
+        console.debug(`Failed to fetch remote Draco decoder from ${DEFAULT_DRACO_DECODER_LOCATION} (offline: ${(typeof navigator !== "undefined") ? navigator.onLine : "unknown"})`);
         // check if the default values have been changed by the user. 
         // If they didnt change / the default paths are not reachable, fall back to local versions
-        if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco)
+        if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco) {
             DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
-        if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2)
+        }
+        if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2) {
             DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
+        }
     })
     .finally(() => {
         prepareLoaders();
@@ -46,6 +49,16 @@ fetch(_remoteDracoDecoderUrl, {
  */
 export function setDracoDecoderLocation(location: string) {
     DEFAULT_DRACO_DECODER_LOCATION = location;
+
+    if (dracoLoader && dracoLoader[$dracoDecoderPath] != DEFAULT_DRACO_DECODER_LOCATION) {
+        console.debug("Updating Draco decoder path to " + location);
+        dracoLoader[$dracoDecoderPath] = DEFAULT_DRACO_DECODER_LOCATION;
+        dracoLoader.setDecoderPath(DEFAULT_DRACO_DECODER_LOCATION);
+        dracoLoader.preload();
+    }
+    else {
+        console.debug("Setting Draco decoder path to " + location);
+    }
 }
 /**
  * Set the location of the KTX2 transcoder.
@@ -53,9 +66,18 @@ export function setDracoDecoderLocation(location: string) {
  */
 export function setKTX2TranscoderLocation(location: string) {
     DEFAULT_KTX2_TRANSCODER_LOCATION = location;
+    // if set from <needle-engine> 
+    if (ktx2Loader && ktx2Loader.transcoderPath != DEFAULT_KTX2_TRANSCODER_LOCATION) {
+        console.debug("Updating KTX2 transcoder path to " + location);
+        ktx2Loader.setTranscoderPath(DEFAULT_KTX2_TRANSCODER_LOCATION);
+        ktx2Loader.init();
+    }
+    else {
+        console.debug("Setting KTX2 transcoder path to " + location);
+    }
 }
 
-
+const $dracoDecoderPath = Symbol("dracoDecoderPath");
 let dracoLoader: DRACOLoader;
 let meshoptDecoder: typeof MeshoptDecoder;
 let ktx2Loader: KTX2Loader;
@@ -64,6 +86,7 @@ let ktx2Loader: KTX2Loader;
 function prepareLoaders() {
     if (!dracoLoader) {
         dracoLoader = new DRACOLoader();
+        dracoLoader[$dracoDecoderPath] = DEFAULT_DRACO_DECODER_LOCATION;
         dracoLoader.setDecoderPath(DEFAULT_DRACO_DECODER_LOCATION);
         dracoLoader.setDecoderConfig({ type: 'js' });
         dracoLoader.preload();
@@ -103,6 +126,11 @@ export function addDracoAndKTX2Loaders(loader: GLTFLoader) {
     if (!(loader as any).meshoptDecoder)
         loader.setMeshoptDecoder(meshoptDecoder);
 }
+
+
+
+
+
 
 
 /**

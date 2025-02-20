@@ -44,7 +44,7 @@ fetch(_remoteDracoDecoderUrl, {
     })
 
 /**
- * Set the location of the Draco decoder.
+ * Set the location of the Draco decoder. If a draco loader has already been created, it will be updated.
  * @default 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
  */
 export function setDracoDecoderLocation(location: string) {
@@ -61,7 +61,7 @@ export function setDracoDecoderLocation(location: string) {
     }
 }
 /**
- * Set the location of the KTX2 transcoder.
+ * Set the location of the KTX2 transcoder. If a KTX2 loader has already been created, it will be updated.
  * @default 'https://www.gstatic.com/basis-universal/versioned/2021-04-15-ba1c3e4/'
  */
 export function setKTX2TranscoderLocation(location: string) {

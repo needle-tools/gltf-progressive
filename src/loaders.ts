@@ -33,10 +33,10 @@ fetch(_remoteDracoDecoderUrl, {
         // check if the default values have been changed by the user. 
         // If they didnt change / the default paths are not reachable, fall back to local versions
         if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco) {
-            DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
+            setDracoDecoderLocation("./include/draco/");
         }
         if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2) {
-            DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
+            setKTX2TranscoderLocation("./include/ktx2/");
         }
     })
     .finally(() => {

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { useNeedleProgressive, getRaycastMesh, useRaycastMeshes } from "https://www.unpkg.com/@needle-tools/gltf-progressive@latest"
+import { useNeedleProgressive, getRaycastMesh, useRaycastMeshes } from "@needle-tools/gltf-progressive";
 import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
 
 

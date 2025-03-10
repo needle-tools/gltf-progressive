@@ -63,7 +63,7 @@ The full example can be found at `examples/threejs`
             "three": "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js",
             "three/addons/": "https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/",
             "three/examples/": "https://cdn.jsdelivr.net/npm/three@latest/examples/",
-            "@needle-engine/gltf-progressive": "https://www.unpkg.com/@needle-tools/gltf-progressive@latest"
+            "@needle-tools/gltf-progressive": "https://cdn.jsdelivr.net/npm/@needle-tools/gltf-progressive/gltf-progressive.min.js"
         }
     }
     </script>
@@ -104,7 +104,7 @@ The example can be found in `examples/modelviewer.html`
         }
     </script>
     <!-- Include gltf-progressive -->
-    <script type="module" src="https://www.unpkg.com/@needle-tools/gltf-progressive@latest"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@needle-tools/gltf-progressive/gltf-progressive.min.js"></script>
     <!-- Include model-viewer -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 </head>

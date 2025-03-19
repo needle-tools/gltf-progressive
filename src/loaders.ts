@@ -22,6 +22,8 @@ const _remoteDracoDecoderUrl = new URL(DEFAULT_DRACO_DECODER_LOCATION + "draco_d
 //     }
 //     prepareLoaders();
 // }
+// Avoid cache busting - if we don't do this chrome will clear the fully cached file (potentially)
+_remoteDracoDecoderUrl.searchParams.append("range", "true");
 fetch(_remoteDracoDecoderUrl, {
     method: "GET",
     headers: {

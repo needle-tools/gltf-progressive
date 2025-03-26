@@ -35,13 +35,15 @@ export default defineConfig(() => {
                 }[format]),
             },
             rollupOptions: {
-                external: ["three",
+                external: [
+                    "three",
                     "three/examples/jsm/loaders/GLTFLoader.js",
                     "three/examples/jsm/libs/meshopt_decoder.module.js",
                     "three/examples/jsm/loaders/DRACOLoader.js",
                     "three/examples/jsm/loaders/KTX2Loader.js",
                 ],
                 output: {
+                    minifyInternalExports: false,
                     plugins: [minifyEs()],
                     // prevent rollup from generating separate chunks
                     manualChunks: _ => "needle-tools-gltf-progressive"

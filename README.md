@@ -20,7 +20,7 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
   - [single \<model-viewer> element](https://engine.needle.tools/demos/gltf-progressive/modelviewer) 
   - [multiple \<model-viewer> elements](https://engine.needle.tools/demos/gltf-progressive/modelviewer-multiple)
 - [Needle Engine](https://stackblitz.com/edit/needle-engine-gltf-progressive?file=src%2Fmain.ts)
-- [Progressive VRM 14 MB to 1 MB](https://cloud.needle.tools/view/91b4450/262927895)
+- [Needle Cloud](https://cloud.needle.tools/view?file=Z23hmXBZN45qJ-ZN45qJ-world)
 
 **Interactive Examples**:
 - [Stackblitz](https://stackblitz.com/@marwie/collections/gltf-progressive)
@@ -40,9 +40,9 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
 Full example in `examples/react-three-fiber`
 
 ```ts
-function ChurchModel() {
+function MyModel() {
   const { gl } = useThree()
-  const url = 'https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb'
+  const url = 'https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file'
   const { scene } = useGLTF(url, false, false, (loader) => {
     useNeedleProgressive(url, gl, loader as any)
   })
@@ -74,16 +74,14 @@ In your script:
 ```ts
 const gltfLoader = new GLTFLoader();
 
-const url = "https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb";
+const url = "https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file";
 
-// register the progressive loader
+// register the progressive loader plugin
 useNeedleProgressive(url, renderer, gltfLoader)
 
 // just call the load method as usual
 gltfLoader.load(url, gltf => {
-    console.log(gltf)
     scene.add(gltf.scene)
-    gltf.scene.position.y += .95;
 })
 ```
 
@@ -110,7 +108,7 @@ The example can be found in `examples/modelviewer.html`
 </head>
 <body>
 
-    <model-viewer src="https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb" camera-controls auto-rotate></model-viewer>
+    <model-viewer src="https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file" camera-controls auto-rotate></model-viewer>
     
 </body>
 ```

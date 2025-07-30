@@ -108,6 +108,13 @@ export class LODsManager {
     targetTriangleDensity: number = 200_000;
 
     /**
+     * The interval in frames to automatically update the bounds of skinned meshes.   
+     * Set to 0 or a negative value to disable automatic bounds updates. 
+     * @default 30
+     */
+    skinnedMeshAutoUpdateBoundsInterval = 30;
+
+    /**
      * The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 2, the LODs will be updated every second frame, etc.
      * @default "auto"
      */
@@ -531,7 +538,8 @@ export class LODsManager {
                 skinnedMesh.computeBoundingBox();
             }
             // Fix: https://linear.app/needle/issue/NE-5264
-            else if (state.frames % 30 === 0) {
+            else if (this.skinnedMeshAutoUpdateBoundsInterval > 0 
+                && state.frames % this.skinnedMeshAutoUpdateBoundsInterval === 0) {
                 // use lowres geometry for bounding box calculation
                 const raycastmesh = getRaycastMesh(skinnedMesh);
                 const originalGeometry = skinnedMesh.geometry;
@@ -738,14 +746,14 @@ export class LODsManager {
                 const pixelSizeOnScreen = screenSize * factor;
                 let foundLod = false;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {
-                    let lod = texture_lods_minmax.lods[i];
+                    const lod = texture_lods_minmax.lods[i];
 
                     if (saveDataEnabled && lod.max_height >= 2048) {
                         continue; // skip 2k textures when saveData is enabled
                     }
-
                     if (isMobileDevice() && lod.max_height > 4096)
                         continue; // skip 8k textures on mobile devices (for now)
+                    
 
                     if (lod.max_height > pixelSizeOnScreen || (!foundLod && i === 0)) {
                         foundLod = true;

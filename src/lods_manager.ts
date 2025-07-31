@@ -1,9 +1,10 @@
 import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
-import { NEEDLE_progressive, ProgressiveMaterialTextureLoadingResult } from "./extension.js";
+import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isMobileDevice } from "./utils.internal.js"
 import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
 import { getRaycastMesh } from "./utils.js";
+import { applyDebugSettings, debug, debug_OverrideLodLevel } from "./lods.debug.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");
@@ -58,9 +59,16 @@ declare type LODChangedEventListener = (args: {
  */
 export class LODsManager {
 
-    /** Assign a function to draw debug lines for the LODs. This function will be called with the start and end position of the line and the color of the line when the `debugprogressive` query parameter is set.
+    /** 
+     * Assign a function to draw debug lines for the LODs. This function will be called with the start and end position of the line and the color of the line when the `debugprogressive` query parameter is set.
      */
     static debugDrawLine?: (a: Vector3, b: Vector3, color: number) => void;
+
+    /**
+     * Force override the LOD level for all objects in the scene
+     */
+    static overrideGlobalLodLevel?: number;
+
 
     /** @internal */
     static getObjectLODState(object: Object3D): LOD_state | undefined {
@@ -352,9 +360,16 @@ export class LODsManager {
             plugin.onBeforeUpdateLOD?.(this.renderer, scene, camera, object);
         }
 
-        this.calculateLodLevel(camera, object, state, desiredDensity, levels);
-        levels.mesh_lod = Math.round(levels.mesh_lod);
-        levels.texture_lod = Math.round(levels.texture_lod);
+        const debugLodLevel = LODsManager.overrideGlobalLodLevel !== undefined ? LODsManager.overrideGlobalLodLevel : debug_OverrideLodLevel;
+        if (debugLodLevel >= 0) {
+            levels.mesh_lod = debugLodLevel;
+            levels.texture_lod = debugLodLevel;
+        }
+        else {
+            this.calculateLodLevel(camera, object, state, desiredDensity, levels);
+            levels.mesh_lod = Math.round(levels.mesh_lod);
+            levels.texture_lod = Math.round(levels.texture_lod);
+        }
 
         // we currently only support auto LOD changes for meshes
         if (levels.mesh_lod >= 0) {
@@ -362,10 +377,12 @@ export class LODsManager {
         }
 
         // TODO: we currently can not switch texture lods because we need better caching for the textures internally (see copySettings in progressive + NE-4431)
-        let textureLOD = levels.texture_lod;
+        if (object.material && levels.texture_lod >= 0) {
+            this.loadProgressiveTextures(object.material, levels.texture_lod);
+        }
 
-        if (object.material && textureLOD >= 0) {
-            this.loadProgressiveTextures(object.material, textureLOD);
+        if (debug && object.material && !object["isGizmo"]) {
+            applyDebugSettings(object.material);
         }
 
         for (const plugin of plugins) {
@@ -401,7 +418,7 @@ export class LODsManager {
         else if (level < material[$currentLOD]) {
             update = true;
         }
-        
+
         const debugLevel = material["DEBUG:LOD"];
         if (debugLevel != undefined) {
             update = material[$currentLOD] != debugLevel;
@@ -509,8 +526,8 @@ export class LODsManager {
         }
 
         // The mesh info contains also the density for all available LOD level so we can use this for selecting which level to show
-        const mesh_lods_info = NEEDLE_progressive.getMeshLODInformation(mesh.geometry);
-        const mesh_lods = mesh_lods_info?.lods;
+        const mesh_lods = NEEDLE_progressive.getMeshLODExtension(mesh.geometry)?.lods;
+        const primitive_index = NEEDLE_progressive.getPrimitiveIndex(mesh.geometry);
         const has_mesh_lods = mesh_lods && mesh_lods.length > 0;
 
         const texture_lods_minmax = NEEDLE_progressive.getMaterialMinMaxLODsCount(mesh.material);
@@ -538,7 +555,7 @@ export class LODsManager {
                 skinnedMesh.computeBoundingBox();
             }
             // Fix: https://linear.app/needle/issue/NE-5264
-            else if (this.skinnedMeshAutoUpdateBoundsInterval > 0 
+            else if (this.skinnedMeshAutoUpdateBoundsInterval > 0
                 && state.frames % this.skinnedMeshAutoUpdateBoundsInterval === 0) {
                 // use lowres geometry for bounding box calculation
                 const raycastmesh = getRaycastMesh(skinnedMesh);
@@ -690,7 +707,8 @@ export class LODsManager {
             // const framerate = this.context.time.smoothedFps;
             if (mesh_lods && state.lastScreenCoverage > 0) {
                 for (let l = 0; l < mesh_lods.length; l++) {
-                    const densityForThisLevel = mesh_lods[l].density;
+                    const lod = mesh_lods[l];
+                    const densityForThisLevel = lod.densities?.[primitive_index] || lod.density || .00001;
                     const resultingDensity = densityForThisLevel / state.lastScreenCoverage;
                     if (resultingDensity < desiredDensity) {
                         expectedLevel = l;
@@ -753,7 +771,7 @@ export class LODsManager {
                     }
                     if (isMobileDevice() && lod.max_height > 4096)
                         continue; // skip 8k textures on mobile devices (for now)
-                    
+
 
                     if (lod.max_height > pixelSizeOnScreen || (!foundLod && i === 0)) {
                         foundLod = true;

@@ -1,7 +1,7 @@
 import { Scene, Camera, Object3D, Object3DEventMap, WebGLRenderer, Mesh, Texture, Material } from "three";
 import { LODsManager } from "../lods_manager.js";
 import { NEEDLE_progressive_plugin } from "./plugin.js";
-import { EXTENSION_NAME, NEEDLE_progressive, NEEDLE_progressive_mesh_model, NEEDLE_progressive_texture_model } from "../extension.js";
+import { EXTENSION_NAME, NEEDLE_progressive, NEEDLE_ext_progressive_mesh, NEEDLE_ext_progressive_texture } from "../extension.js";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 const $meshLODSymbol = Symbol("NEEDLE_mesh_lod");
@@ -217,7 +217,7 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
                                 continue;
                             }
                             if (textureData?.extensions?.[EXTENSION_NAME]) {
-                                const ext = textureData.extensions[EXTENSION_NAME] as NEEDLE_progressive_texture_model;
+                                const ext = textureData.extensions[EXTENSION_NAME] as NEEDLE_ext_progressive_texture;
                                 if (ext && url) {
                                     NEEDLE_progressive.registerTexture(url, value, ext.lods.length, textureIndex, ext);
                                 }
@@ -239,7 +239,7 @@ class RegisterModelviewerDataPlugin implements NEEDLE_progressive_plugin {
             return;
         }
         // modelviewer has all the information we need in the userData (associations + gltfExtensions)
-        const ext = object.userData?.["gltfExtensions"]?.[EXTENSION_NAME] as NEEDLE_progressive_mesh_model;
+        const ext = object.userData?.["gltfExtensions"]?.[EXTENSION_NAME] as NEEDLE_ext_progressive_mesh;
         if (ext && url) {
             const lodKey = object.uuid;
             NEEDLE_progressive.registerMesh(url, lodKey, object as Mesh, 0, ext.lods.length, ext);

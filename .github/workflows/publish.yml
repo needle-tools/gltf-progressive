@@ -1,0 +1,47 @@
+name: Release Workflow
+on:
+  push:
+    branches:
+      - 'release/next'
+      - 'release/stable'
+      - 'release/experimental'
+
+jobs:
+  run-release-script:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        # with:
+        #   submodules: false
+        #   token: ${{ secrets.GH_RELEASE_TOKEN }} 
+      # - name: Initialize specific submodules
+      #   run: |
+      #     git config --global url."https://x-access-token:${{ secrets.GH_RELEASE_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      #     git submodule update --init modules/gltf-progressive
+      #     git submodule update --init modules/needle-engine-modules
+        # working-directory: ./
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package.json'
+          
+      - name: Install dependencies
+        run: npm install
+                
+      - name: Publish to npm (stable branch)
+        if: startsWith(github.ref_name, 'release/stable')
+        run: npx --yes needle-publish-helper@next publish "." --webhook "${{ secrets.DISCORD_WEBHOOK }}" --access-token "${{ secrets.NPM_TOKEN }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+
+      - name: Publish to npm (next and experimental branches)
+        if: ${{ !startsWith(github.ref_name, 'release/stable') }}
+        run: npx --yes needle-publish-helper@next publish "." --webhook "${{ secrets.DISCORD_WEBHOOK }}" --access-token "${{ secrets.NPM_TOKEN }}" --tag "${{ github.ref_name }}" --version+tag --version+hash --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+
+

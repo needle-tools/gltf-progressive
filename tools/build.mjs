@@ -1,6 +1,5 @@
 import { execSync } from "child_process";
-import { join } from "path";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
+import { copyFileSync, existsSync, readFileSync } from "fs";
 import { copyFile, mkdir, rm, writeFile } from "fs/promises"
 import { copyRecursive, postprocessExamples, updateVersion } from "./utils.mjs";
 
@@ -44,13 +43,5 @@ async function run() {
     console.log("Copy examples...");
     copyRecursive("examples", outDir + "/examples");
     postprocessExamples();
-
-    // publish to npm
-    let cmd = isDryRun ? "npm publish --dry-run --tag latest" : "npm publish --tag latest";
-    cmd = "npm set registry https://registry.npmjs.org && " + cmd;
-    console.log(`Begin publish...${isDryRun ? " (dry run)" : ""} to npm using command: \"${cmd}\"`);
-    console.log(`Directory: \"${outDir}\"`);
-    execSync(cmd, { cwd: outDir, stdio: "inherit" });
-    console.log("Finished publish!" + (isDryRun ? " (dry run)" : ""))
 }
 

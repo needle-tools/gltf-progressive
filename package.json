@@ -34,7 +34,7 @@
   },
   "scripts": {
     "dev": "npm-watch build:lib",
-    "deploy": "node tools/build.mjs",
+    "prepublishOnly": "node tools/build.mjs",
     "build": "node tools/build.mjs --dry-run",
     "build:dist": "vite build",
     "build:lib": "tsc --rootDir ./src --outDir ./dist/lib --noEmit false --declaration --incremental false --sourceMap false && node tools/compile.mjs",

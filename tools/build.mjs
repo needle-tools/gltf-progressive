@@ -36,9 +36,6 @@ async function run() {
 
     console.log("Finished building!");
 
-    // copy npmignore
-    copyFileSync(".npmignore", outDir + "/.npmignore");
-
     // copy examples
     console.log("Copy examples...");
     copyRecursive("examples", outDir + "/examples");

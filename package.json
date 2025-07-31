@@ -34,14 +34,24 @@
   },
   "scripts": {
     "dev": "npm-watch build:lib",
-    "prepublishOnly": "node tools/build.mjs",
-    "build": "node tools/build.mjs --dry-run",
+    "build": "node tools/build.mjs",
+    "build:dry": "node tools/build.mjs --dry-run",
     "build:dist": "vite build",
     "build:lib": "tsc --rootDir ./src --outDir ./dist/lib --noEmit false --declaration --incremental false --sourceMap false && node tools/compile.mjs",
     "test:tsc": "tsc --noEmit",
     "lint": "eslint --ext .ts src",
     "lint:fix": "eslint --ext .ts src --fix"
   },
+  "files": [
+    "lib",
+    "examples",
+    "package.json",
+    "README.md",
+    "CHANGELOG.md",
+    "gltf-progressive.js",
+    "gltf-progressive.min.js",
+    "gltf-progressive.umd.cjs"
+  ],
   "watch": {
     "build:lib": {
       "patterns": [

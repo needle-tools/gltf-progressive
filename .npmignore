@@ -1,9 +1,0 @@
-src
-*.code-workspace
-**/tsconfig.tsbuildinfo
-tools/**
-node_modules/**
-examples/**/dist
-.eslintrc.cjs
-vite.config.ts
-tsconfig.json

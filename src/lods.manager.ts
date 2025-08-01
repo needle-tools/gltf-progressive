@@ -465,7 +465,7 @@ export class LODsManager {
             const promise = NEEDLE_progressive.assignTextureLOD(material, level).then(_ => {
                 this._lodchangedlisteners.forEach(l => l({ type: "texture", level, object: material }));
             });
-            PromiseGroup.addPromise("texture", promise, this._newPromiseGroups);
+            PromiseGroup.addPromise("texture", material, promise, this._newPromiseGroups);
         }
     }
 
@@ -496,7 +496,7 @@ export class LODsManager {
                 }
                 return res;
             });
-            PromiseGroup.addPromise("mesh", promise, this._newPromiseGroups);
+            PromiseGroup.addPromise("mesh", mesh, promise, this._newPromiseGroups);
             return promise;
         }
         return Promise.resolve(null);

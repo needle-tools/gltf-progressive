@@ -5,7 +5,7 @@ import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.
 import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
 import { getRaycastMesh } from "./utils.js";
 import { applyDebugSettings, debug, debug_OverrideLodLevel } from "./lods.debug.js";
-import { PromiseGroup, PromiseGroupOptions } from "./lods.loading.js";
+import { PromiseGroup, PromiseGroupOptions } from "./lods.promise.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");

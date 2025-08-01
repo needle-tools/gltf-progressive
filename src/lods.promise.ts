@@ -63,7 +63,7 @@ export class PromiseGroup {
     private readonly _awaiting: Array<Promise<any>> = [];
 
     constructor(frame: number, options: PromiseGroupOptions) {
-        const minFrames = frame === 0 ? 2 : 1; // if we are at frame 0, we need at least 2 frames to capture
+        const minFrames = 2; // wait at least 2 frames to capture promises
         const framesToCapture = Math.max(options.frames ?? minFrames, minFrames); // default to 2 frames and make sure it's at least 2 frames
 
         this.frame_start = frame;

@@ -1,5 +1,5 @@
 import { Scene, Camera, Object3D, Object3DEventMap, WebGLRenderer, Mesh, Texture, Material } from "three";
-import { LODsManager } from "../lods_manager.js";
+import { LODsManager } from "../lods.manager.js";
 import { NEEDLE_progressive_plugin } from "./plugin.js";
 import { EXTENSION_NAME, NEEDLE_progressive, NEEDLE_ext_progressive_mesh, NEEDLE_ext_progressive_texture } from "../extension.js";
 import { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";

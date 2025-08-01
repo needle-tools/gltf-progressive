@@ -1,10 +1,11 @@
 import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
-import { getParam, isMobileDevice } from "./utils.internal.js"
+import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.js"
 import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
 import { getRaycastMesh } from "./utils.js";
 import { applyDebugSettings, debug, debug_OverrideLodLevel } from "./lods.debug.js";
+import { PromiseGroup, PromiseGroupOptions } from "./lods.loading.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");
@@ -101,10 +102,10 @@ export class LODsManager {
         return lodsManager;
     }
 
-    private readonly context: LODManagerContext;
 
     readonly renderer: WebGLRenderer;
-    readonly projectionScreenMatrix = new Matrix4();
+    private readonly context: LODManagerContext;
+    private readonly projectionScreenMatrix = new Matrix4();
 
     /** @deprecated use static `LODsManager.addPlugin()` method. This getter will be removed in later versions */
     get plugins() { return plugins; }
@@ -142,8 +143,41 @@ export class LODsManager {
      */
     manual: boolean = false;
 
-    private readonly _lodchangedlisteners: LODChangedEventListener[] = [];
+    private readonly _newPromiseGroups: PromiseGroup[] = [];
+    private _promiseGroupIds: number = 0;
 
+    /**
+     * Call to await LODs loading during the next render cycle.
+     */
+    awaitLoading(opts?: PromiseGroupOptions) {
+        const id = this._promiseGroupIds++;
+        const newGroup = new PromiseGroup(this.#frame, { ...opts, });
+        this._newPromiseGroups.push(newGroup);
+        const start = performance.now();
+        newGroup.ready.finally(() => {
+            const index = this._newPromiseGroups.indexOf(newGroup);
+            if (index >= 0) {
+                this._newPromiseGroups.splice(index, 1);
+
+                if (isDevelopmentServer()) performance.measure("LODsManager:awaitLoading", {
+                    start,
+                    detail: { id, name: opts?.name, awaited: newGroup.awaitedCount, resolved: newGroup.resolvedCount }
+                });
+            }
+
+        });
+        return newGroup.ready;
+    }
+    private _postprocessPromiseGroups() {
+        if (this._newPromiseGroups.length === 0) return;
+        for (let i = this._newPromiseGroups.length - 1; i >= 0; i--) {
+            const group = this._newPromiseGroups[i];
+            group.update(this.#frame);
+        }
+    }
+
+
+    private readonly _lodchangedlisteners: LODChangedEventListener[] = [];
     addEventListener(evt: "changed", listener: LODChangedEventListener) {
         if (evt === "changed") {
             this._lodchangedlisteners.push(listener);
@@ -271,6 +305,7 @@ export class LODsManager {
             }
 
             this.internalUpdate(scene, camera);
+            this._postprocessPromiseGroups();
         }
     }
 
@@ -427,9 +462,10 @@ export class LODsManager {
 
         if (update) {
             material[$currentLOD] = level;
-            NEEDLE_progressive.assignTextureLOD(material, level).then(_ => {
+            const promise = NEEDLE_progressive.assignTextureLOD(material, level).then(_ => {
                 this._lodchangedlisteners.forEach(l => l({ type: "texture", level, object: material }));
-            })
+            });
+            PromiseGroup.addPromise("texture", promise, this._newPromiseGroups);
         }
     }
 
@@ -454,19 +490,14 @@ export class LODsManager {
         if (update) {
             mesh[$currentLOD] = level;
             const originalGeometry = mesh.geometry;
-            return NEEDLE_progressive.assignMeshLOD(mesh, level).then(res => {
+            const promise = NEEDLE_progressive.assignMeshLOD(mesh, level).then(res => {
                 if (res && mesh[$currentLOD] == level && originalGeometry != mesh.geometry) {
                     this._lodchangedlisteners.forEach(l => l({ type: "mesh", level, object: mesh }));
-                    // if (this.handles) {
-                    //     for (const inst of this.handles) {
-                    //         // if (inst["LOD"] < level) continue;
-                    //         // inst["LOD"] = level;
-                    //         inst.setGeometry(mesh.geometry);
-                    //     }
-                    // }
                 }
                 return res;
-            })
+            });
+            PromiseGroup.addPromise("mesh", promise, this._newPromiseGroups);
+            return promise;
         }
         return Promise.resolve(null);
     }

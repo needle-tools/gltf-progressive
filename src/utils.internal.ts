@@ -50,3 +50,11 @@ export function isMobileDevice() {
     if (getParam("debugprogressive")) console.log("[glTF Progressive]: isMobileDevice", _ismobile);
     return _ismobile;
 }
+
+export function isDevelopmentServer() {
+    if (typeof window === "undefined") return false;
+    const url = new URL(window.location.href);
+    const isLocalhostOrIpAddress = url.hostname === "localhost" || /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname);
+    const isDevelopment = url.hostname === "127.0.0.1" || isLocalhostOrIpAddress;
+    return isDevelopment;
+}

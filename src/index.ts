@@ -2,7 +2,7 @@ export { version as VERSION } from "./version.js"
 
 export * from "./extension.js"
 export * from "./plugins/index.js"
-export { LODsManager, type LOD_Results } from "./lods_manager.js"
+export { LODsManager, type LOD_Results } from "./lods.manager.js"
 export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders, configureLoader } from "./loaders.js"
 export { getRaycastMesh, registerRaycastMesh, useRaycastMeshes } from "./utils.js"
 
@@ -11,7 +11,7 @@ import { WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { addDracoAndKTX2Loaders, configureLoader, createLoaders, SmartLoadingHints } from "./loaders.js";
 import { NEEDLE_progressive } from "./extension.js";
-import { LODsManager } from "./lods_manager.js";
+import { LODsManager } from "./lods.manager.js";
 
 declare type UseNeedleGLTFProgressiveOptions = {
     /**

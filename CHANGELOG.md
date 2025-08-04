@@ -4,10 +4,8 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [3.0.0-alpha.1] - 2025-08-01
+## [3.0.0] - 2025-08-04
 - Add: `awaitLoading` function to LODsManager which returns a promise that resolves once all LODs that started loading during this frame have finished. This can be used to hide lowres LODs at the initial start of the website (e.g. via CSS blur)
-
-## [3.0.0-alpha] - 2025-07-31
 - Change: Use mesh densities per primitive 
 
 ## [2.1.4] - 2025-04-13

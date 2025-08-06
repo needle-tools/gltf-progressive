@@ -527,6 +527,9 @@ export class LODsManager {
         return pt1.z < 0;
     }
 
+    private static skinnedMeshBoundsFrameOffsetCounter = 0;
+    private static $skinnedMeshBoundsOffset = Symbol("gltf-progressive-skinnedMeshBoundsOffset");
+
     private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number, result: LOD_Results): void {
 
 
@@ -581,21 +584,35 @@ export class LODsManager {
         let boundingBox = mesh.geometry.boundingBox;
 
         if (mesh.type === "SkinnedMesh") {
-            const skinnedMesh = mesh as SkinnedMesh
+            const skinnedMesh = mesh as SkinnedMesh;
+
             if (!skinnedMesh.boundingBox) {
                 skinnedMesh.computeBoundingBox();
             }
             // Fix: https://linear.app/needle/issue/NE-5264
-            else if (this.skinnedMeshAutoUpdateBoundsInterval > 0
-                && state.frames % this.skinnedMeshAutoUpdateBoundsInterval === 0) {
-                // use lowres geometry for bounding box calculation
-                const raycastmesh = getRaycastMesh(skinnedMesh);
-                const originalGeometry = skinnedMesh.geometry;
-                if (raycastmesh) {
-                    skinnedMesh.geometry = raycastmesh;
+            else if (this.skinnedMeshAutoUpdateBoundsInterval > 0) {
+
+                // Save a frame offset per object to stagger updates of skinned meshes across multiple frames
+                // This isn't a perfect solution to improve perf impact of skinned mesh updates (e.g. large skinned meshes would still be costly)
+                // But for many smaller meshes it helps to avoid spikes in performance
+                if (!skinnedMesh[LODsManager.$skinnedMeshBoundsOffset]) {
+                    const offset = LODsManager.skinnedMeshBoundsFrameOffsetCounter++;
+                    skinnedMesh[LODsManager.$skinnedMeshBoundsOffset] = offset;
                 }
-                skinnedMesh.computeBoundingBox();
-                skinnedMesh.geometry = originalGeometry;
+                const frameOffset = skinnedMesh[LODsManager.$skinnedMeshBoundsOffset];
+
+                if ((state.frames + frameOffset) % this.skinnedMeshAutoUpdateBoundsInterval === 0) {
+                    // use lowres geometry for bounding box calculation
+                    const raycastmesh = getRaycastMesh(skinnedMesh);
+                    const originalGeometry = skinnedMesh.geometry;
+                    if (raycastmesh) {
+                        skinnedMesh.geometry = raycastmesh;
+                    }
+                    skinnedMesh.computeBoundingBox();
+                    skinnedMesh.geometry = originalGeometry;
+                }
+
+
             }
             boundingBox = skinnedMesh.boundingBox;
         }

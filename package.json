@@ -28,7 +28,7 @@
   "main": "./src/index.ts",
   "exports": {
     ".": {
-      "import": "./src/index.js",
+      "import": "./src/index.ts",
       "require": "./gltf-progressive.js"
     }
   },

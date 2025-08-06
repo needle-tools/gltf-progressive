@@ -557,10 +557,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * Register a texture with LOD information
      */
     static registerTexture = (url: string, tex: Texture, level: number, index: number, ext: NEEDLE_ext_progressive_texture) => {
-        if (debug) console.log("> Progressive: register texture", index, tex.name, tex.uuid, tex, ext);
         if (!tex) {
-            if (debug) console.error("gltf-progressive: Register texture without texture");
+            if (debug) console.error("gltf-progressive: Called register texture without texture");
             return;
+        }
+        if (debug) {
+            const width = tex.image?.width || tex.source?.data?.width || 0;
+            const height = tex.image?.height || tex.source?.data?.height || 0;
+            console.log(`> Progressive: register texture [${index}] ${tex.name} ${width}x${height} ${tex.uuid}`, tex, ext);
         }
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
         // see https://github.com/needle-tools/needle-engine-support/issues/133

@@ -94,10 +94,10 @@ export class PromiseQueue {
         this._running.set(key, promise);
         promise.finally(() => {
             this._running.delete(key);
-            if(this.debug) console.debug(`[PromiseQueue]: Promise for key ${key} finished, running: ${this._running.size}, waiting: ${this._queue.length}`);
+            if(this.debug) console.debug(`[PromiseQueue]: Promise finished now running: ${this._running.size}, waiting: ${this._queue.length}. (finished ${key})`);
         });
 
-        if (this.debug) console.debug(`[PromiseQueue]: Adding promise for key ${key}, running: ${this._running.size}, waiting: ${this._queue.length}`);
+        if (this.debug) console.debug(`[PromiseQueue]: Added new promise, now running: ${this._running.size}, waiting: ${this._queue.length}. (added ${key})`);
     }
 
     private internalUpdate() {

@@ -58,3 +58,58 @@ export function isDevelopmentServer() {
     const isDevelopment = url.hostname === "127.0.0.1" || isLocalhostOrIpAddress;
     return isDevelopment;
 }
+
+
+
+type SlotReturnValue = { use?: ((promise: Promise<any>) => void) };
+
+export class PromiseQueue {
+
+    private readonly _running: Map<string, Promise<any>> = new Map();
+    private readonly _queue: Array<{ key: string, resolve: (value: SlotReturnValue) => void }> = [];
+    public debug: boolean = false;
+
+    constructor(public readonly maxConcurrent: number = 100, opts: { debug?: boolean } = {}) {
+        this.debug = opts.debug ?? false;
+        window.requestAnimationFrame(this.tick)
+    }
+
+    private tick = () => {
+        this.internalUpdate();
+        setTimeout(this.tick, 10);
+    }
+
+    /**
+     * Request a slot for a promise with a specific key. This function returns a promise with a `use` method that can be called to add the promise to the queue.
+     */
+    slot(key: string): Promise<SlotReturnValue> {
+        if (this.debug) console.debug(`[PromiseQueue]: Requesting slot for key ${key}, running: ${this._running.size}, waiting: ${this._queue.length}`);
+        return new Promise<SlotReturnValue>((resolve) => {
+            this._queue.push({ key, resolve });
+        });
+    }
+
+    private add(key: string, promise: Promise<any>) {
+        if (this._running.has(key)) return;
+        this._running.set(key, promise);
+        promise.finally(() => {
+            this._running.delete(key);
+            if(this.debug) console.debug(`[PromiseQueue]: Promise for key ${key} finished, running: ${this._running.size}, waiting: ${this._queue.length}`);
+        });
+
+        if (this.debug) console.debug(`[PromiseQueue]: Adding promise for key ${key}, running: ${this._running.size}, waiting: ${this._queue.length}`);
+    }
+
+    private internalUpdate() {
+        // Run for as many free slots as we can
+        const diff = this.maxConcurrent - this._running.size;
+        for (let i = 0; i < diff && this._queue.length > 0; i++) {
+            if (this.debug) console.debug(`[PromiseQueue]: Running ${this._running.size} promises, waiting for ${this._queue.length} more.`);
+            const { key, resolve } = this._queue.shift()!;
+            resolve({
+                use: (promise) => this.add(key, promise)
+            })
+        }
+    }
+
+}

@@ -2,7 +2,7 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { resolveUrl } from "./utils.internal.js";
+import { PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -576,8 +576,6 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * Register a mesh with LOD information
      */
     static registerMesh = (url: string, key: string, mesh: Mesh, level: number, index: number, ext: NEEDLE_ext_progressive_mesh) => {
-
-
         const geometry = mesh.geometry as BufferGeometry;
         if (!geometry) {
             if (debug) console.warn("gltf-progressive: Register mesh without geometry");
@@ -627,24 +625,24 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
         const LODKEY = LOD?.key;
 
-        let progressiveInfo: NEEDLE_progressive_ext | undefined;
+        let lodInfo: NEEDLE_progressive_ext | undefined;
 
         // See https://github.com/needle-tools/needle-engine-support/issues/133
         if ((current as Texture).isTexture === true) {
             const tex = current as Texture;
             if (tex.source && tex.source[$progressiveTextureExtension])
-                progressiveInfo = tex.source[$progressiveTextureExtension];
+                lodInfo = tex.source[$progressiveTextureExtension];
         }
 
 
-        if (!progressiveInfo) progressiveInfo = NEEDLE_progressive.lodInfos.get(LODKEY);
+        if (!lodInfo) lodInfo = NEEDLE_progressive.lodInfos.get(LODKEY);
 
-        if (progressiveInfo) {
+        if (lodInfo) {
 
             if (level > 0) {
                 let useLowRes = false;
-                const hasMultipleLevels = Array.isArray(progressiveInfo.lods);
-                if (hasMultipleLevels && level >= progressiveInfo.lods.length) {
+                const hasMultipleLevels = Array.isArray(lodInfo.lods);
+                if (hasMultipleLevels && level >= lodInfo.lods.length) {
                     useLowRes = true;
                 }
                 else if (!hasMultipleLevels) {
@@ -657,13 +655,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
 
             /** the unresolved LOD url */
-            const unresolved_lod_url = Array.isArray(progressiveInfo.lods) ? progressiveInfo.lods[level]?.path : progressiveInfo.lods;
+            const unresolved_lod_url = Array.isArray(lodInfo.lods) ? lodInfo.lods[level]?.path : lodInfo.lods;
 
             // check if we have a uri
             if (!unresolved_lod_url) {
-                if (debug && !progressiveInfo["missing:uri"]) {
-                    progressiveInfo["missing:uri"] = true;
-                    console.warn("Missing uri for progressive asset for LOD " + level, progressiveInfo);
+                if (debug && !lodInfo["missing:uri"]) {
+                    lodInfo["missing:uri"] = true;
+                    console.warn("Missing uri for progressive asset for LOD " + level, lodInfo);
                 }
                 return null;
             }
@@ -673,12 +671,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
             // check if the requested file needs to be loaded via a GLTFLoader
             if (lod_url.endsWith(".glb") || lod_url.endsWith(".gltf")) {
-                if (!progressiveInfo.guid) {
-                    console.warn("missing pointer for glb/gltf texture", progressiveInfo);
+                if (!lodInfo.guid) {
+                    console.warn("missing pointer for glb/gltf texture", lodInfo);
                     return null;
                 }
                 // check if the requested file has already been loaded
-                const KEY = lod_url + "_" + progressiveInfo.guid;
+                const KEY = lod_url + "_" + lodInfo.guid;
 
                 // check if the requested file is currently being loaded
                 const existing = this.previouslyLoaded.get(KEY);
@@ -718,7 +716,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     }
                 }
 
-                const ext = progressiveInfo;
+                const slot = await this.queue.slot(lod_url);
+                if (!slot.use) {
+                    if (debug) console.log(`LOD ${level} was aborted: ${lod_url}`);
+                    return null; // the request was aborted, we don't load it again
+                }
+                const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
 
                     const loader = new GLTFLoader();
@@ -738,9 +741,11 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     }
                     const gltf = await loader.loadAsync(url).catch(err => {
                         console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
-                        return null;
+                        return resolve(null);
                     });
-                    if (!gltf) return null;
+                    if (!gltf) {
+                        return resolve(null);
+                    }
 
                     const parser = gltf.parser;
                     if (debugverbose) console.log("Loading finished " + lod_url, ext.guid);
@@ -830,6 +835,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     return resolve(null);
                 });
                 this.previouslyLoaded.set(KEY, request);
+                slot.use(request);
                 const res = await request;
                 return res as T;
             }
@@ -839,12 +845,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     const loader = new TextureLoader();
                     const tex = await loader.loadAsync(lod_url);
                     if (tex) {
-                        (tex as any).guid = progressiveInfo.guid;
+                        (tex as any).guid = lodInfo.guid;
                         tex.flipY = false;
                         tex.needsUpdate = true;
                         tex.colorSpace = current.colorSpace;
                         if (debugverbose)
-                            console.log(progressiveInfo, tex);
+                            console.log(lodInfo, tex);
                     }
                     else if (debug) console.warn("failed loading", lod_url);
                     return tex as T;
@@ -857,6 +863,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         }
         return null;
     }
+
+    private static queue: PromiseQueue = new PromiseQueue(100, { debug: debug != false });
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number) {
         if (!res) return;

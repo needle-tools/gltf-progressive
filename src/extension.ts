@@ -413,7 +413,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
 
             // this can currently not happen
-            if (Array.isArray(tex)) return null;
+            if (Array.isArray(tex)) {
+                console.warn("Progressive: Got an array of textures for a texture slot, this should not happen", tex);
+                return null;
+            }
 
             if (tex?.isTexture === true) {
                 if (tex != current) {
@@ -423,7 +426,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         // Check if the assigned texture LOD is higher quality than the current LOD
                         // This is necessary for cases where e.g. a texture is updated via an explicit call to assignTextureLOD
                         if (assigned && !debug) {
-                            const assignedLOD = this.getAssignedLODInformation(assigned);
+                            const assignedLOD = this.getAssignedLODInformation(assigned as any);
                             if (assignedLOD && assignedLOD?.level < level) {
                                 if (debug === "verbose")
                                     console.warn("Assigned texture level is already higher: ", assignedLOD.level, level, material, assigned, tex);
@@ -488,6 +491,21 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return mesh;
         });
     }
+
+    // private _isLoadingTexture;
+    // loadTexture = (textureIndex: number) => {
+    //     if (this._isLoadingTexture) return null;
+    //     const ext = this.parser.json.textures[textureIndex]?.extensions?.[EXTENSION_NAME] as NEEDLE_ext_progressive_texture;
+    //     if (!ext) return null;
+    //     this._isLoadingTexture = true;
+    //     return this.parser.getDependency("texture", textureIndex).then(tex => {
+    //         this._isLoadingTexture = false;
+    //         if (tex) {
+    //             NEEDLE_progressive.registerTexture(this.url, tex as Texture, ext.lods?.length, textureIndex, ext);
+    //         }
+    //         return tex;
+    //     });
+    // }
 
     afterRoot(gltf: GLTF): null {
         if (debug)
@@ -564,12 +582,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (debug) {
             const width = tex.image?.width || tex.source?.data?.width || 0;
             const height = tex.image?.height || tex.source?.data?.height || 0;
-            console.log(`> Progressive: register texture [${index}] ${tex.name} ${width}x${height} ${tex.uuid}`, tex, ext);
+            console.log(`> Progressive: register texture[${index}] "${tex.name || tex.uuid}", Current: ${width}x${height}, Max: ${ext.lods[0]?.width}x${ext.lods[0]?.height}, uuid: ${tex.uuid}`, ext, tex);
         }
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
         // see https://github.com/needle-tools/needle-engine-support/issues/133
-        if (tex.source)
-            tex.source[$progressiveTextureExtension] = ext;
+        if (tex.source) tex.source[$progressiveTextureExtension] = ext;
+
         const LODKEY = ext.guid;
         NEEDLE_progressive.assignLODInformation(url, tex, LODKEY, level, index);
         NEEDLE_progressive.lodInfos.set(LODKEY, ext);
@@ -621,9 +639,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         const debugverbose = debug == "verbose";
 
         /** this key is used to lookup the LOD information */
-        const LOD: LODInformation | undefined = current.userData.LODS;
+        const LOD = this.getAssignedLODInformation(current);
 
         if (!LOD) {
+            if (debug) console.warn(`[gltf-progressive] No LOD information found: ${current.name}, uuid: ${current.uuid}, type: ${current.type}`, current);
             return null;
         }
 
@@ -875,9 +894,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (!res.userData) res.userData = {};
         const info: LODInformation = new LODInformation(url, key, level, index);
         res.userData.LODS = info;
+        if ("source" in res && typeof res.source === "object") res.source.LODS = info; // for tiled textures
     }
     private static getAssignedLODInformation(res: ObjectThatMightHaveLODs | null | undefined): null | LODInformation {
-        return res?.userData?.LODS || null;
+        if(!res) return null;
+        if(res.userData?.LODS) return res.userData.LODS;
+        if("source" in res && res.source?.LODS) return res.source.LODS;
+        return null;
     }
 
     // private static readonly _copiedTextures: WeakMap<Texture, Texture> = new Map();
@@ -925,7 +948,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     }
 }
 
-declare type ObjectThatMightHaveLODs = { name: string, userData?: { LODS?: LODInformation } };
+declare type ObjectThatMightHaveLODs = { name: string, userData?: { LODS?: LODInformation } } | Texture & { source?: { LODS?: LODInformation } };
 
 // declare type GetLODInformation = () => LODInformation | null;
 

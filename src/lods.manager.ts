@@ -758,6 +758,12 @@ export class LODsManager {
                     const lod = mesh_lods[l];
                     const densityForThisLevel = lod.densities?.[primitive_index] || lod.density || .00001;
                     const resultingDensity = densityForThisLevel / state.lastScreenCoverage;
+
+                    if (primitive_index > 0 && isDevelopmentServer() && !lod.densities && !globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"]) {
+                        window["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"] = true;
+                        console.warn(`[Needle Progressive] Detected usage of mesh without primitive densities. This might cause incorrect LOD level selection: Consider re-optimizing your model by updating your Needle Integration, Needle glTF Pipeline or running optimization again on Needle Cloud.`);
+                    }
+
                     if (resultingDensity < desiredDensity) {
                         expectedLevel = l;
                         break;

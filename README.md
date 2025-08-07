@@ -1,6 +1,16 @@
 # glTF progressive
 
-Blazingly fast loading with lazy LODs for glTF, GLB or VRM files + smart density based LOD selection for meshes or texture for any three.js based project.
+**Blazingly fast loading for glTF, GLB or VRM files** + smart density based LOD selection for meshes or texture for any three.js based project.  
+
+## Installation
+`npm i @needle-tools/gltf-progressive`
+
+```ts
+import { useNeedleProgressive } from "@needle-tools/gltf-progressive";
+
+// Before loading with GLTFLoader call useNeedleProgressive once to register the loader plugin
+useNeedleProgressive("<asset_url>", webgl_renderer, gltf_loader)
+```
 
 ## Features
 - [**Single line integration**](#usage) for any three.js project

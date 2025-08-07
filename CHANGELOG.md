@@ -4,6 +4,10 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2025-08-07
+- Fix: Issue where compressed texture did loose LOD information ([issue](https://linear.app/needle/issue/NE-6669))
+- Chore: Warn once if multi-mesh primitive is detected but compressed asset doesnt have densities per primitive, meaning an older compression pipeline version was used in processing this asset that would require an update for correct LOD updates
+
 ## [3.1.0] - 2025-08-06
 - Add: Queue to limit max concurrent LOD requests
 - Fix: Spread the skinned mesh bounds calculation over the available frames (defined by `skinnedMeshAutoUpdateBoundsInterval`)

@@ -1,19 +1,21 @@
 # glTF progressive
 
-LODs on steroids for glTF, GLB or VRM files with density based loading for meshes or texture for any three.js based project.
+Blazingly fast loading with lazy LODs for glTF, GLB or VRM files + smart density based LOD selection for meshes or texture for any three.js based project.
 
 ## Features
-- One line integration in any three.js based engine/project
-- Mesh LOD support
-- Texture LOD support
-- LOD levels are loaded on demand based on mesh screen density
-- Low poly LOD meshes can easily be used for raycasting for smooth interactions with high-poly meshes
-- Cloud generation and loading support via [cloud.needle.tools](https://cloud.needle.tools) for glTF, GLB & VRM assets
+- [**Single line integration**](#usage) for any three.js project
+- Mesh & Texture LOD support
+  - LOD levels are loaded lazily on demand based on **mesh screen density** instead of pure distance ensuring consistent and predictable quality
+- Mobile [data-saving](https://developer.mozilla.org/en-US/docs/Web/API/NetworkInformation/saveData) support
+- Automatically handles KTX2, WebP, Draco, Meshopt... for you 
+- Asset generation and loading support via [Needle Cloud](https://cloud.needle.tools) for glTF, GLB & VRM assets
+- Faster raycasting thanks to low poly LOD meshes: smooth interactions with high-poly meshes
 
 ## Examples
 
 Examples are in the `/examples` directory. Live versions can be found in the links below.  
 
+- [Loading comparisons](https://stackblitz.com/edit/gltf-progressive-comparison?file=package.json,index.html)
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
 - [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
 - \<model-viewer\> 
@@ -27,32 +29,33 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
 - [Codesandbox](https://codesandbox.io/dashboard/sandboxes/gltf-progressive)
 
 
+## Videos
+<a href="https://youtu.be/7EjL0BRfIp8" target="_blank">![Progressive glTF — comparison with traditional three.js optimization
+](https://engine.needle.tools/demos/gltf-progressive/video-comparison-throttled-thumbnail-1.webp)</a>  
+*Progressive glTF — comparison with traditional three.js optimization* 
+  
 <br/>
-<video width="320" controls autoplay src="https://engine.needle.tools/demos/gltf-progressive/video.mp4">
-    <source src="https://engine.needle.tools/demos/gltf-progressive/video.mp4" type="video/mp4">
-</video>
 
+# Usage
 
-## Usage
+## three.js
 
-### react three fiber
+**gltf-progressive** works with any three.js project and should also work with any three.js version.  
 
-Full example in `examples/react-three-fiber`
+Full three.js example at: `examples/threejs`
 
 ```ts
-function MyModel() {
-  const { gl } = useThree()
-  const url = 'https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file'
-  const { scene } = useGLTF(url, false, false, (loader) => {
-    useNeedleProgressive(url, gl, loader as any)
-  })
-  return <primitive object={scene} />
-}
+const gltfLoader = new GLTFLoader();
+const url = "https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file";
+
+// register the progressive loader plugin
+useNeedleProgressive(url, renderer, gltfLoader)
+
+// just call the load method as usual
+gltfLoader.load(url, gltf => {
+    scene.add(gltf.scene)
+})
 ```
-
-### threejs (CDN, no bundler)
-
-The full example can be found at `examples/threejs`
 
 ```html
 <head>
@@ -70,25 +73,25 @@ The full example can be found at `examples/threejs`
 </head>
 ```
 
-In your script:
+
+## react three fiber
+
+Full react-three-fiber example at: `examples/react-three-fiber`
+
 ```ts
-const gltfLoader = new GLTFLoader();
-
-const url = "https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file";
-
-// register the progressive loader plugin
-useNeedleProgressive(url, renderer, gltfLoader)
-
-// just call the load method as usual
-gltfLoader.load(url, gltf => {
-    scene.add(gltf.scene)
-})
+function MyModel() {
+  const { gl } = useThree()
+  const url = 'https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file'
+  const { scene } = useGLTF(url, false, false, (loader) => {
+    useNeedleProgressive(url, gl, loader as any)
+  })
+  return <primitive object={scene} />
+}
 ```
 
+## google \<model-viewer\>
 
-### \<model-viewer\>
-
-The example can be found in `examples/modelviewer.html`
+Full model-viewer example at: `examples/modelviewer.html`
 
 ```html
 <head>
@@ -113,13 +116,39 @@ The example can be found in `examples/modelviewer.html`
 </body>
 ```
 
-### Needle Engine
+## Needle Engine
 
 [Needle Engine](https://needle.tools) natively supports progressive loading of these glTF files! See [docs.needle.tools](https://docs.needle.tools) for more information. 
 
 
-Use [cloud.needle.tools](https://cloud.needle.tools) to generate LODs for your assets now.
+# Advanced
 
+### Add a LOD Manager plugin to receive callbacks per object
+Create a new class extending `NEEDLE_progressive_plugin` and add your plugin by calling the static `LODSManager.addPlugin(<your_plugin_instance>)`
+
+### Wait for LODs being loaded
+Call `lodsManager.awaitLoading(<opts?>)` to receive a promise that will resolve when all object LODs that start loading during the next frame have finished to update. Use the optional options parameter to e.g. wait for more frames.
+
+### Global LOD level override
+Set the static `LODsManager.overrideGlobalLodLevel = <level>` to any number between 0 and 6. To disable the override again set it to `undefined`.
+
+### LOD Manager settings
+These settings are available on the LOD manager instance:
+- `targetTriangleDensity` -  The target triangle density is the desired max amount of triangles on screen when the mesh is filling the screen.  
+- `skinnedMeshAutoUpdateBoundsInterval` - The interval in frames to automatically update the bounds of skinned meshes. 
+- `updateInterval` - The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 2, the LODs will be updated every second frame, etc.
+- `pause` - If set to true, the LODsManager will not update the LODs.
+- `manual` - When set to true the LODsManager will not update the LODs. This can be used to manually update the LODs using the `update` method. Otherwise the LODs will be updated automatically when the renderer renders the scene.
+
+### Automatically use low-poly meshes for raycasting
+Simply call `useRaycastMeshes(true)` to enable faster raycasting when using the the THREE.Raycaster. This can again be disabled by calling `useRaycastMeshes(false)`. Calling this method is only necessary once to enable it.  
+
+### Get LOW poly meshes for physics simulation
+Call `getRaycastMesh(<your_mesh_object>)`
+
+
+# How can I generate assets for progressive loading
+Use [Needle Cloud](https://cloud.needle.tools) to generate LODs for your assets (includes hosting, global CDN, password protection, versioning, CLI support...) or use one of the Needle integrations for Unity or Blender.
 
 # Contact ✒️
 <b>[🌵 needle — tools for creators](https://needle.tools)</b> • 

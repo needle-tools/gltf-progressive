@@ -95,19 +95,23 @@ function collectData(gltf, data) {
 
         if ("isTexture" in key && key.isTexture) {
             const texture = /** @type {import("three").Texture} */ ( /** @type {unknown} */ (key));
+            const gltf_texture = gltf.parser.json.textures[cache.textures ?? -1];
             result.textures.push({
                 texture: texture,
                 textureIndex: cache.textures ?? -1,
+                extensions: gltf_texture?.extensions ?? {},
             })
         }
         else if ("isMesh" in key && key.isMesh) {
             const mesh = /** @type {import("three").Mesh} */ ( /** @type {unknown} */ (key));
             const meshIndex = cache.meshes ?? -1;
             const primitiveIndex = cache.primitives ?? -1;
+            const gltf_mesh = gltf.parser.json.meshes[meshIndex];
             result.geometries.push({
                 geometry: mesh.geometry,
                 meshIndex: meshIndex,
                 primitiveIndex: primitiveIndex,
+                extensions: gltf_mesh?.extensions ?? {},
             });
         }
         else if ("isMaterial" in key && key.isMaterial) {

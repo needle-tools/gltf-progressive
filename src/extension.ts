@@ -1,4 +1,4 @@
-import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, ShaderMaterial, Texture, TextureLoader } from "three";
+import { BufferAttribute, BufferGeometry, Group, InterleavedBuffer, InterleavedBufferAttribute, Material, Mesh, Object3D, RawShaderMaterial, ShaderMaterial, Texture, TextureLoader } from "three";
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
@@ -10,6 +10,7 @@ import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 // import { PromiseAllWithErrors, resolveUrl } from "../../engine_utils.js";
 import { plugins } from "./plugins/plugin.js";
 import { debug } from "./lods.debug.js";
+import { createGLTFLoaderWorker } from "./worker/loader.mainthread.js";
 
 
 export const EXTENSION_NAME = "NEEDLE_progressive";
@@ -747,6 +748,24 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
 
+                    const worker = await createGLTFLoaderWorker({});
+                    const res = await worker.load(lod_url);
+                    for (const entry of res.geometries) {
+                        const geo = entry.geometry as BufferGeometry;
+                        NEEDLE_progressive.assignLODInformation(LOD.url, geo, LODKEY, level, 0);
+                        return resolve(geo);
+                    }
+                    for (const entry of res.textures) {
+                        let tex = entry.texture as Texture;
+                        NEEDLE_progressive.assignLODInformation(LOD.url, tex, LODKEY, level, undefined);
+                        if (current instanceof Texture) {
+                            tex = this.copySettings(current, tex);
+                        }
+                        (tex as any).guid = ext.guid;
+                        return resolve(tex);
+                    }
+                    return resolve(null);
+
                     const loader = new GLTFLoader();
                     addDracoAndKTX2Loaders(loader);
 
@@ -826,8 +845,6 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         }
                         if (found) {
                             const mesh = await parser.getDependency("mesh", index) as Mesh | Group;
-
-                            const meshExt = ext as NEEDLE_ext_progressive_mesh;
 
                             if (debugverbose) console.log(`Loaded Mesh \"${mesh.name}\"`, lod_url, index, mesh, KEY);
 

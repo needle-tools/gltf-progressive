@@ -1,4 +1,4 @@
-import type { BufferGeometry, Texture, WebGLRenderer } from "three";
+import { BufferAttribute, BufferGeometry, InterleavedBuffer, InterleavedBufferAttribute, Texture, WebGLRenderer } from "three";
 import { createLoaders, GET_LOADER_LOCATION_CONFIG } from "../loaders.js";
 import type { KTX2LoaderWorkerConfig } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { PromiseQueue, SlotReturnValue } from "../utils.internal.js";
@@ -7,8 +7,8 @@ type GLTFLoaderWorkerOptions = {};
 
 type WorkerLoadResult = {
     url: string,
-    geometries: Array<{ geometry: BufferGeometry, meshIndex: number, primitiveIndex: number }>,
-    textures: Array<{ texture: Texture, textureIndex: number }>,
+    geometries: Array<{ geometry: BufferGeometry, meshIndex: number, primitiveIndex: number, extensions: Record<string, any> }>,
+    textures: Array<{ texture: Texture, textureIndex: number, extensions: Record<string, any> }>,
 };
 
 export function createGLTFLoaderWorker(opts?: GLTFLoaderWorkerOptions): Promise<GLTFLoaderWorker> {
@@ -44,11 +44,18 @@ class GLTFLoaderWorker {
     }
 
 
-    async load(url: string, opts?: { renderer?: WebGLRenderer }): Promise<WorkerLoadResult> {
+    async load(url: string | URL, opts?: { renderer?: WebGLRenderer }): Promise<WorkerLoadResult> {
         const configs = GET_LOADER_LOCATION_CONFIG();
         const loaders = createLoaders(opts?.renderer || new (await import("three")).WebGLRenderer());
         const ktx2Loader = loaders.ktx2Loader;
         const ktx2LoaderConfig = ktx2Loader.workerConfig;
+
+        if (url instanceof URL) {
+            url = url.toString();
+        }
+        else if (!url.startsWith("blob:") && !url.startsWith("http:") && !url.startsWith("https:")) {
+            url = new URL(url, window.location.href).toString();
+        }
 
         const options: GLTFLoaderWorker_Message = {
             type: "load",
@@ -74,6 +81,7 @@ class GLTFLoaderWorker {
                 case "loaded-gltf": {
                     for (const promise of this._promises) {
                         if (promise.url === data.result.url) {
+                            processReceivedData(data.result);
                             promise.resolve(data.result);
                         }
                     }
@@ -91,4 +99,30 @@ class GLTFLoaderWorker {
             type: 'init',
         });
     }
+}
+
+function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
+
+    for (const res of data.geometries) {
+        const receivedGeometry = res.geometry;
+        const geo = new BufferGeometry();
+
+        if (receivedGeometry.index) geo.setIndex(new BufferAttribute(receivedGeometry.index.array, 1));
+        
+        for (const attrName in receivedGeometry.attributes) {
+            const attribute = receivedGeometry.attributes[attrName];
+            if ("gpuType" in attribute) {
+                const interleavedBuffer = new InterleavedBuffer(attribute.array, attribute.itemSize);
+                geo.setAttribute(attrName, new InterleavedBufferAttribute(interleavedBuffer, attribute.itemSize, attribute.array.byteOffset, attribute.normalized));
+            }
+            else {
+                geo.setAttribute(attrName, new BufferAttribute(receivedGeometry.attributes[attrName].array, 3));
+            }
+        }
+
+        res.geometry = geo;
+
+    }
+
+    return data;
 }

@@ -5,6 +5,7 @@
 		}
 	],
 	"settings": {
-		"window.title": "@needle-tools/glTF-progressive"
+		"window.title": "@needle-tools/glTF-progressive",
+		"js/ts.implicitProjectConfig.checkJs": true
 	}
 }

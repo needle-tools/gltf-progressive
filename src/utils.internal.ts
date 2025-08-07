@@ -61,12 +61,12 @@ export function isDevelopmentServer() {
 
 
 
-type SlotReturnValue = { use?: ((promise: Promise<any>) => void) };
+export type SlotReturnValue<T = any> = { use?: ((promise: Promise<T>) => void) };
 
-export class PromiseQueue {
+export class PromiseQueue<T = any> {
 
-    private readonly _running: Map<string, Promise<any>> = new Map();
-    private readonly _queue: Array<{ key: string, resolve: (value: SlotReturnValue) => void }> = [];
+    private readonly _running: Map<string, Promise<T>> = new Map();
+    private readonly _queue: Array<{ key: string, resolve: (value: SlotReturnValue<T>) => void }> = [];
     public debug: boolean = false;
 
     constructor(public readonly maxConcurrent: number = 100, opts: { debug?: boolean } = {}) {
@@ -82,19 +82,19 @@ export class PromiseQueue {
     /**
      * Request a slot for a promise with a specific key. This function returns a promise with a `use` method that can be called to add the promise to the queue.
      */
-    slot(key: string): Promise<SlotReturnValue> {
+    slot(key: string): Promise<SlotReturnValue<T>> {
         if (this.debug) console.debug(`[PromiseQueue]: Requesting slot for key ${key}, running: ${this._running.size}, waiting: ${this._queue.length}`);
-        return new Promise<SlotReturnValue>((resolve) => {
+        return new Promise<SlotReturnValue<T>>((resolve) => {
             this._queue.push({ key, resolve });
         });
     }
 
-    private add(key: string, promise: Promise<any>) {
+    private add(key: string, promise: Promise<T>) {
         if (this._running.has(key)) return;
         this._running.set(key, promise);
         promise.finally(() => {
             this._running.delete(key);
-            if(this.debug) console.debug(`[PromiseQueue]: Promise finished now running: ${this._running.size}, waiting: ${this._queue.length}. (finished ${key})`);
+            if (this.debug) console.debug(`[PromiseQueue]: Promise finished now running: ${this._running.size}, waiting: ${this._queue.length}. (finished ${key})`);
         });
 
         if (this.debug) console.debug(`[PromiseQueue]: Added new promise, now running: ${this._running.size}, waiting: ${this._queue.length}. (added ${key})`);

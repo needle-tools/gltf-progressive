@@ -8,7 +8,8 @@
 ```ts
 import { useNeedleProgressive } from "@needle-tools/gltf-progressive";
 
-// Before loading with GLTFLoader call useNeedleProgressive once to register the loader plugin
+// Before loading with GLTFLoader   
+// call 'useNeedleProgressive' once to register the loader plugin
 useNeedleProgressive("<asset_url>", webgl_renderer, gltf_loader)
 ```
 

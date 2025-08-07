@@ -10,7 +10,7 @@ import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 // import { PromiseAllWithErrors, resolveUrl } from "../../engine_utils.js";
 import { plugins } from "./plugins/plugin.js";
 import { debug } from "./lods.debug.js";
-import { createGLTFLoaderWorker } from "./worker/loader.mainthread.js";
+import { createWorker, GLTFLoaderWorker } from "./worker/loader.mainthread.js";
 
 
 export const EXTENSION_NAME = "NEEDLE_progressive";
@@ -635,6 +635,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     /** this contains the geometry/textures that were originally loaded */
     private static readonly lowresCache: Map<string, Texture | BufferGeometry[]> = new Map();
 
+    private static readonly workers: Array<GLTFLoaderWorker> = [];
+    private static _workersIndex = 0;
+
     private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number): Promise<T | null> {
 
         const debugverbose = debug == "verbose";
@@ -748,23 +751,40 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
 
-                    const worker = await createGLTFLoaderWorker({});
-                    const res = await worker.load(lod_url);
-                    for (const entry of res.geometries) {
-                        const geo = entry.geometry as BufferGeometry;
-                        NEEDLE_progressive.assignLODInformation(LOD.url, geo, LODKEY, level, 0);
-                        return resolve(geo);
-                    }
-                    for (const entry of res.textures) {
-                        let tex = entry.texture as Texture;
-                        NEEDLE_progressive.assignLODInformation(LOD.url, tex, LODKEY, level, undefined);
-                        if (current instanceof Texture) {
-                            tex = this.copySettings(current, tex);
+                    // if (globalThis["WORKERCOUNT"] === undefined || globalThis["WORKERCOUNT"] < 10) 
+                    {
+                        globalThis["WORKERCOUNT"] = globalThis["WORKERCOUNT"] + 1 || 1;
+                        // let worker: GLTFLoaderWorker | null = null;
+                        // if (this.workers.length < 10) {
+                        //     worker = new GLTFLoaderWorker();
+                        // }
+                        const worker = await createWorker({});
+                        const res = await worker.load(lod_url);
+                        if (res.geometries.length > 0) {
+                            const arr = new Array<BufferGeometry>();
+                            for(let index = 0; index < res.geometries.length; index++) {
+                                const entry = res.geometries[index];
+                                const newGeo = entry.geometry;
+                                console.log({current, new: newGeo}, entry.meshIndex, entry.primitiveIndex)
+                                NEEDLE_progressive.assignLODInformation(LOD.url, newGeo, LODKEY, level, entry.primitiveIndex);
+                                arr.push(newGeo);
+                            }
+                            return resolve(arr);
                         }
-                        (tex as any).guid = ext.guid;
-                        return resolve(tex);
                     }
-                    return resolve(null);
+                    return null;
+
+
+                    // for (const entry of res.textures) {
+                    //     let tex = entry.texture as Texture;
+                    //     NEEDLE_progressive.assignLODInformation(LOD.url, tex, LODKEY, level, undefined);
+                    //     if (current instanceof Texture) {
+                    //         tex = this.copySettings(current, tex);
+                    //     }
+                    //     (tex as any).guid = ext.guid;
+                    //     return resolve(tex);
+                    // }
+                    // return resolve(null);
 
                     const loader = new GLTFLoader();
                     addDracoAndKTX2Loaders(loader);
@@ -904,7 +924,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    private static queue: PromiseQueue = new PromiseQueue(100, { debug: debug != false });
+    private static queue: PromiseQueue = new PromiseQueue(5, { debug: debug != false });
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number) {
         if (!res) return;
@@ -914,9 +934,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if ("source" in res && typeof res.source === "object") res.source.LODS = info; // for tiled textures
     }
     private static getAssignedLODInformation(res: ObjectThatMightHaveLODs | null | undefined): null | LODInformation {
-        if(!res) return null;
-        if(res.userData?.LODS) return res.userData.LODS;
-        if("source" in res && res.source?.LODS) return res.source.LODS;
+        if (!res) return null;
+        if (res.userData?.LODS) return res.userData.LODS;
+        if ("source" in res && res.source?.LODS) return res.source.LODS;
         return null;
     }
 

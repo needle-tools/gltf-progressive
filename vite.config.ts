@@ -75,12 +75,17 @@ function minifyEs() {
 /** @type {import("vite").Plugin} */
 const copyWorkerPlugin = {
     name: 'copy-workers',
-    // configResolved(config) {
-    //     if(!config.rollupOptions) config.rollupOptions = {};
-    //     if(!config.rollupOptions.external) config.rollupOptions.external = [];
-    //     // config.rollupOptions.external.push((id) => id.includes('.worker.'));
-    // },
+    generateBundle(_options, bundle) {
+        // Remove any worker files from the bundle before they get to assets. If we don't do this the worker will also be copied to the final output
+        Object.keys(bundle).forEach(fileName => {
+            if (fileName.includes('worker') || fileName.includes('.worker.')) {
+                delete bundle[fileName];
+                console.log(`🚫 Excluded from bundle: ${fileName}`);
+            }
+        });
+    },
     writeBundle(outputOptions, _bundle) {
+        // Copy all workers in our src project to the library output directory
         const outDir = outputOptions.dir || 'dist';
         const srcPath = path.resolve('src');
         const pattern = /\.worker\.(js|ts)$/;

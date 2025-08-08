@@ -180,6 +180,7 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
         }
 
         // handle morph attributes
+        // TODO: one slow aspect that could be moved to the worker is updating the morph target textures
         if (worker_geometry.morphAttributes) {
             for (const morphName in worker_geometry.morphAttributes) {
                 const morphAttributes = worker_geometry.morphAttributes[morphName];

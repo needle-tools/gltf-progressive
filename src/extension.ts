@@ -2,7 +2,7 @@ import { BufferAttribute, BufferGeometry, Group, InterleavedBuffer, InterleavedB
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { getParam, PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { getParam, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -13,6 +13,7 @@ import { debug } from "./lods.debug.js";
 import { getWorker, GLTFLoaderWorker } from "./worker/loader.mainthread.js";
 
 const useWorker = getParam("gltf-progressive-worker");
+const reduceMipmaps = getParam("gltf-progressive-reduce-mipmaps");
 
 const $progressiveTextureExtension = Symbol("needle-progressive-texture");
 
@@ -155,13 +156,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 }
             }
         }
+        else {
+            if (debug) console.warn(`[getMaterialMinMaxLODsCount] Unsupported material type: ${material.type}`);
+        }
 
 
         material[cacheKey] = minmax;
         return minmax;
 
         function processTexture(tex: Texture, minmax: TextureLODsMinMaxInfo) {
-            const info = self.getAssignedLODInformation(tex)
+            const info = self.getAssignedLODInformation(tex);
             if (info) {
                 const model = self.lodInfos.get(info.key) as NEEDLE_ext_progressive_texture;
                 if (model && model.lods) {
@@ -436,6 +440,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                                 return null;
                             }
                             // assigned.dispose();
+                        }
+                        // Since we're switching LOD level for the texture based on distance we can avoid uploading all the mipmaps
+                        if (reduceMipmaps && tex.mipmaps) {
+                            const prevCount = tex.mipmaps.length;
+                            tex.mipmaps.length = Math.min(tex.mipmaps.length, 3);
+                            if (prevCount !== tex.mipmaps.length) {
+                                if(debug) console.debug(`Reduced mipmap count from ${prevCount} to ${tex.mipmaps.length} for ${tex.uuid}: ${tex.image?.width}x${tex.image?.height}.`);
+                            }
                         }
                         material[slot] = tex;
                     }
@@ -771,7 +783,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                                 if (current instanceof Texture) {
                                     texture = this.copySettings(current, texture);
                                 }
-                                if(texture) (texture as any).guid = ext.guid;
+                                if (texture) (texture as any).guid = ext.guid;
                                 // textures.push(texture);
                                 return resolve(texture);
                             }
@@ -935,7 +947,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    private static queue: PromiseQueue = new PromiseQueue(50, { debug: debug != false });
+    private static maxConcurrent = 50;
+    private static queue: PromiseQueue = new PromiseQueue(NEEDLE_progressive.maxConcurrent, { debug: debug != false });
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number) {
         if (!res) return;

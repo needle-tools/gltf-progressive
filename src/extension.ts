@@ -2,7 +2,7 @@ import { BufferAttribute, BufferGeometry, Group, InterleavedBuffer, InterleavedB
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { getParam, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -12,8 +12,7 @@ import { plugins } from "./plugins/plugin.js";
 import { debug } from "./lods.debug.js";
 import { getWorker, GLTFLoaderWorker } from "./worker/loader.mainthread.js";
 
-
-export const EXTENSION_NAME = "NEEDLE_progressive";
+const useWorker = getParam("gltf-progressive-worker");
 
 const $progressiveTextureExtension = Symbol("needle-progressive-texture");
 
@@ -21,6 +20,9 @@ const $progressiveTextureExtension = Symbol("needle-progressive-texture");
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
 
 
+
+
+export const EXTENSION_NAME = "NEEDLE_progressive";
 
 declare type NEEDLE_progressive_model_LOD = {
     path: string,
@@ -707,6 +709,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 // check if the requested file has already been loaded
                 const KEY = lod_url + "_" + lodInfo.guid;
 
+                const slot = await this.queue.slot(lod_url);
+
                 // check if the requested file is currently being loaded
                 const existing = this.previouslyLoaded.get(KEY);
                 if (existing !== undefined) {
@@ -745,7 +749,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     }
                 }
 
-                const slot = await this.queue.slot(lod_url);
+                // #region loading
                 if (!slot.use) {
                     if (debug) console.log(`LOD ${level} was aborted: ${lod_url}`);
                     return null; // the request was aborted, we don't load it again
@@ -753,28 +757,22 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
 
-                    // if(false)
-                    // if (isTextureRequest)
-                    //  globalThis["WORKERCOUNT"] === undefined || globalThis["WORKERCOUNT"] < 10) 
-                    {
-                        globalThis["WORKERCOUNT"] = globalThis["WORKERCOUNT"] + 1 || 1;
-                        // let worker: GLTFLoaderWorker | null = null;
-                        // if (this.workers.length < 10) {
-                        //     worker = new GLTFLoaderWorker();
-                        // }
+                    // const useWorker = true;
+
+                    if (useWorker) {
                         const worker = await getWorker({});
                         const res = await worker.load(lod_url);
 
                         if (res.textures.length > 0) {
-                            const textures = new Array<Texture>();
+                            // const textures = new Array<Texture>();
                             for (const entry of res.textures) {
                                 let texture = entry.texture;
-                                NEEDLE_progressive.assignLODInformation(LOD.url, texture, LODKEY, level);
+                                NEEDLE_progressive.assignLODInformation(LOD.url, texture, LODKEY, level, undefined);
                                 if (current instanceof Texture) {
                                     texture = this.copySettings(current, texture);
-                                    (texture as any).guid = ext.guid;
                                 }
-                                textures.push(texture);
+                                if(texture) (texture as any).guid = ext.guid;
+                                // textures.push(texture);
                                 return resolve(texture);
                             }
                             // if (textures.length > 0) {
@@ -787,26 +785,17 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             const geometries = new Array<BufferGeometry>();
                             for (const entry of res.geometries) {
                                 const newGeo = entry.geometry;
-                                // console.log({current, new: newGeo}, entry.meshIndex, entry.primitiveIndex)
                                 NEEDLE_progressive.assignLODInformation(LOD.url, newGeo, LODKEY, level, entry.primitiveIndex);
                                 geometries.push(newGeo);
                             }
                             return resolve(geometries);
                         }
+                        return resolve(null);
                     }
-                    return resolve(null);
 
 
-                    // for (const entry of res.textures) {
-                    //     let tex = entry.texture as Texture;
-                    //     NEEDLE_progressive.assignLODInformation(LOD.url, tex, LODKEY, level, undefined);
-                    //     if (current instanceof Texture) {
-                    //         tex = this.copySettings(current, tex);
-                    //     }
-                    //     (tex as any).guid = ext.guid;
-                    //     return resolve(tex);
-                    // }
-                    // return resolve(null);
+
+                    // Old loading
 
                     const loader = new GLTFLoader();
                     addDracoAndKTX2Loaders(loader);
@@ -946,7 +935,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    private static queue: PromiseQueue = new PromiseQueue(5, { debug: debug != false });
+    private static queue: PromiseQueue = new PromiseQueue(50, { debug: debug != false });
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number) {
         if (!res) return;
@@ -980,7 +969,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         // This should only happen once ever for every texture
         // const original = target;
         {
-            if (debug) console.warn("Copy texture settings\n", source.uuid, "\n", target.uuid);
+            if (debug === "verbose") console.debug("Copy texture settings\n", source.uuid, "\n", target.uuid);
             target = target.clone();
         }
         // else {

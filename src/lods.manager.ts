@@ -423,7 +423,7 @@ export class LODsManager {
 
         // TODO: we currently can not switch texture lods because we need better caching for the textures internally (see copySettings in progressive + NE-4431)
         if (object.material && levels.texture_lod >= 0) {
-            this.loadProgressiveTextures(object.material, levels.texture_lod);
+            this.loadProgressiveTextures(object.material, levels.texture_lod, debugLodLevel);
         }
 
         if (debug && object.material && !object["isGizmo"]) {
@@ -444,7 +444,7 @@ export class LODsManager {
      * @param level the LOD level to load. Level 0 is the best quality, higher levels are lower quality
      * @returns Promise with true if the LOD was loaded, false if not
      */
-    private loadProgressiveTextures(material: Material | Material[], level: number): void {
+    private loadProgressiveTextures(material: Material | Material[], level: number, overrideLodLevel?:number): void {
         if (!material) return;
 
         if (Array.isArray(material)) {
@@ -464,10 +464,9 @@ export class LODsManager {
             update = true;
         }
 
-        const debugLevel = material["DEBUG:LOD"];
-        if (debugLevel != undefined) {
-            update = material[$currentLOD] != debugLevel;
-            level = debugLevel;
+        if (overrideLodLevel !== undefined && overrideLodLevel >= 0) {
+            update = material[$currentLOD] != overrideLodLevel;
+            level = overrideLodLevel;
         }
 
         if (update) {
@@ -801,7 +800,7 @@ export class LODsManager {
             if (changed) {
                 const level = mesh_lods?.[result.mesh_lod];
                 if (level) {
-                    console.debug(`Mesh LOD changed: ${state.lastLodLevel_Mesh} → ${result.mesh_lod} (density: ${level.densities?.[primitive_index].toFixed(0)}) | ${mesh.name}`);
+                    console.log(`Mesh LOD changed: ${state.lastLodLevel_Mesh} → ${result.mesh_lod} (density: ${level.densities?.[primitive_index].toFixed(0)}) | ${mesh.name}`);
                 }
             }
         }

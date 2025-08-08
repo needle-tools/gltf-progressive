@@ -1,6 +1,8 @@
-import { Box3, BufferAttribute, BufferGeometry, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, PixelFormat, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferAttribute, BufferGeometry, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, Matrix3, PixelFormat, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { createLoaders, GET_LOADER_LOCATION_CONFIG } from "../loaders.js";
 import type { KTX2LoaderWorkerConfig } from "three/examples/jsm/loaders/KTX2Loader.js";
+import { isMobileDevice } from "../utils.internal.js";
+import { debug } from "../lods.debug.js";
 
 type GLTFLoaderWorkerOptions = {
     debug?: boolean;
@@ -14,10 +16,12 @@ type WorkerLoadResult = {
 
 const workers = new Array<Promise<GLTFLoaderWorker>>();
 let getWorkerId = 0;
+const maxWorkers = isMobileDevice() ? 2 : 10;
 
 export function getWorker(opts?: GLTFLoaderWorkerOptions): Promise<GLTFLoaderWorker> {
-    if (workers.length < 10) {
-        console.warn("[Worker] Creating new GLTFLoaderWorker");
+    if (workers.length < maxWorkers) {
+        const index = workers.length;
+        if(debug) console.warn(`[Worker] Creating new worker #${index}`);
         const worker = GLTFLoaderWorker.createWorker(opts || {});
         workers.push(worker);
         return worker;
@@ -189,8 +193,8 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
 
         geo.boundingBox = new Box3();
         geo.boundingBox.min = new Vector3(
-            worker_geometry.boundingBox?.min.x, 
-            worker_geometry.boundingBox?.min.y, 
+            worker_geometry.boundingBox?.min.x,
+            worker_geometry.boundingBox?.min.y,
             worker_geometry.boundingBox?.min.z,
         );
         geo.boundingBox.max = new Vector3(
@@ -207,18 +211,17 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
             worker_geometry.boundingSphere?.radius
         )
 
-        // geo.computeBoundingSphere();
         // // handle groups
-        // if (receivedGeometry.groups) {
-        //     for (const group of receivedGeometry.groups) {
-        //         geo.addGroup(group.start, group.count, group.materialIndex);
-        //     }
-        // }
+        if (worker_geometry.groups) {
+            for (const group of worker_geometry.groups) {
+                geo.addGroup(group.start, group.count, group.materialIndex);
+            }
+        }
 
         // // handle user data
-        // if (receivedGeometry.userData) {
-        //     geo.userData = receivedGeometry.userData;
-        // }
+        if (worker_geometry.userData) {
+            geo.userData = worker_geometry.userData;
+        }
 
         res.geometry = geo;
 
@@ -259,8 +262,16 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
                 texture.minFilter,
                 texture.format as PixelFormat,
                 texture.type,
-                texture.anisotropy
+                texture.anisotropy,
+                texture.colorSpace
             );
+            newTexture.mipmaps = texture.mipmaps;
+            newTexture.channel = texture.channel;
+            newTexture.source.data = texture.source.data;
+            newTexture.flipY = texture.flipY;
+            newTexture.premultiplyAlpha = texture.premultiplyAlpha;
+            newTexture.unpackAlignment = texture.unpackAlignment;
+            newTexture.matrix = new Matrix3(...texture.matrix.elements);
         }
 
         if (!newTexture) {
@@ -283,9 +294,14 @@ function cloneAttribute(attribute: BufferAttribute | InterleavedBufferAttribute)
         const array = data.array;
         const interleavedBuffer = new InterleavedBuffer(array, data.stride);
         res = new InterleavedBufferAttribute(interleavedBuffer, attribute.itemSize, array.byteOffset, attribute.normalized);
+        res.offset = attribute.offset;
     }
-    else {
+    else if("isBufferAttribute" in attribute && attribute.isBufferAttribute) {
         res = new BufferAttribute(attribute.array, attribute.itemSize, attribute.normalized);
+        res.usage = attribute.usage;
+        res.gpuType = attribute.gpuType;
+        res.updateRanges = attribute.updateRanges;
+        
     }
     return res;
 }

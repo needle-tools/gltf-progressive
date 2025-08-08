@@ -53,17 +53,8 @@ export type GLTFLoaderWorker_Message = {
 
 class GLTFLoaderWorker {
 
-    private static workerUrl: null | string = null;
-
     static async createWorker(opts: GLTFLoaderWorkerOptions) {
-
-        if (!GLTFLoaderWorker.workerUrl) {
-            GLTFLoaderWorker.workerUrl = await import( /* @vite-ignore */ `./loader.worker.js?url`).then(m => {
-                return (m.default || m).toString();
-            });
-            if (!GLTFLoaderWorker.workerUrl) throw new Error("Failed to load GLTFLoaderWorker worker URL");
-        }
-        const worker = new Worker(new URL(GLTFLoaderWorker.workerUrl, import.meta.url), {
+        const worker = new Worker(new URL(`./loader.worker.js?url`, import.meta.url), {
             type: 'module',
         });
         const instance = new GLTFLoaderWorker(worker, opts);

@@ -54,7 +54,7 @@ export type GLTFLoaderWorker_Message = {
 class GLTFLoaderWorker {
 
     static async createWorker(opts: GLTFLoaderWorkerOptions) {
-        const worker = new Worker(new URL(`./loader.worker.js?url`, import.meta.url), {
+        const worker = new Worker(new URL(`./loader.worker.js`, import.meta.url), {
             type: 'module',
         });
         const instance = new GLTFLoaderWorker(worker, opts);

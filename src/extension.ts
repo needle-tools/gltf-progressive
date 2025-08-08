@@ -10,7 +10,7 @@ import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 // import { PromiseAllWithErrors, resolveUrl } from "../../engine_utils.js";
 import { plugins } from "./plugins/plugin.js";
 import { debug } from "./lods.debug.js";
-import { createWorker, GLTFLoaderWorker } from "./worker/loader.mainthread.js";
+import { getWorker, GLTFLoaderWorker } from "./worker/loader.mainthread.js";
 
 
 export const EXTENSION_NAME = "NEEDLE_progressive";
@@ -415,7 +415,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
             // this can currently not happen
             if (Array.isArray(tex)) {
-                console.warn("Progressive: Got an array of textures for a texture slot, this should not happen", tex);
+                console.warn("Progressive: Got an array of textures for a texture slot, this should not happen...");
                 return null;
             }
 
@@ -654,8 +654,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
         let lodInfo: NEEDLE_progressive_ext | undefined;
 
+        const isTextureRequest = (current as Texture).isTexture === true;
+
         // See https://github.com/needle-tools/needle-engine-support/issues/133
-        if ((current as Texture).isTexture === true) {
+        if (isTextureRequest) {
             const tex = current as Texture;
             if (tex.source && tex.source[$progressiveTextureExtension])
                 lodInfo = tex.source[$progressiveTextureExtension];
@@ -751,28 +753,48 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
 
-                    // if (globalThis["WORKERCOUNT"] === undefined || globalThis["WORKERCOUNT"] < 10) 
+                    // if(false)
+                    // if (isTextureRequest)
+                    //  globalThis["WORKERCOUNT"] === undefined || globalThis["WORKERCOUNT"] < 10) 
                     {
                         globalThis["WORKERCOUNT"] = globalThis["WORKERCOUNT"] + 1 || 1;
                         // let worker: GLTFLoaderWorker | null = null;
                         // if (this.workers.length < 10) {
                         //     worker = new GLTFLoaderWorker();
                         // }
-                        const worker = await createWorker({});
+                        const worker = await getWorker({});
                         const res = await worker.load(lod_url);
-                        if (res.geometries.length > 0) {
-                            const arr = new Array<BufferGeometry>();
-                            for(let index = 0; index < res.geometries.length; index++) {
-                                const entry = res.geometries[index];
-                                const newGeo = entry.geometry;
-                                console.log({current, new: newGeo}, entry.meshIndex, entry.primitiveIndex)
-                                NEEDLE_progressive.assignLODInformation(LOD.url, newGeo, LODKEY, level, entry.primitiveIndex);
-                                arr.push(newGeo);
+
+                        if (res.textures.length > 0) {
+                            const textures = new Array<Texture>();
+                            for (const entry of res.textures) {
+                                let texture = entry.texture;
+                                NEEDLE_progressive.assignLODInformation(LOD.url, texture, LODKEY, level);
+                                if (current instanceof Texture) {
+                                    texture = this.copySettings(current, texture);
+                                    (texture as any).guid = ext.guid;
+                                }
+                                textures.push(texture);
+                                return resolve(texture);
                             }
-                            return resolve(arr);
+                            // if (textures.length > 0) {
+                            //     return resolve(textures);
+                            // }
+                        }
+
+                        if (res.geometries.length > 0) {
+
+                            const geometries = new Array<BufferGeometry>();
+                            for (const entry of res.geometries) {
+                                const newGeo = entry.geometry;
+                                // console.log({current, new: newGeo}, entry.meshIndex, entry.primitiveIndex)
+                                NEEDLE_progressive.assignLODInformation(LOD.url, newGeo, LODKEY, level, entry.primitiveIndex);
+                                geometries.push(newGeo);
+                            }
+                            return resolve(geometries);
                         }
                     }
-                    return null;
+                    return resolve(null);
 
 
                     // for (const entry of res.textures) {

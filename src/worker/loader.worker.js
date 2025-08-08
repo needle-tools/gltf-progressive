@@ -9,7 +9,9 @@ import { DRACOLoader } from 'https://esm.sh/three@0.168.0/examples/jsm/loaders/D
 /** @ts-ignore */
 import { KTX2Loader } from 'https://esm.sh/three@0.168.0/examples/jsm/loaders/KTX2Loader.js';
 
-console.debug("[Worker] GLTFLoader worker loaded");
+
+let debug = false;
+
 
 /** 
  * @typedef {import("./loader.mainthread").GLTFLoaderWorker_Message} GLTFLoaderWorker_Message 
@@ -19,11 +21,14 @@ self.onmessage = (msg) => {
     /** @type {GLTFLoaderWorker_Message} */
     const request = msg.data;
 
-    console.debug("[Worker] Message event received:", request);
-
     switch (request.type) {
+        case "init":
+            break;
         case "load":
             loadGLTF(request);
+            break;
+        default:
+            console.error("[Worker] Unknown message type:", request.type);
             break;
     }
 };
@@ -39,28 +44,38 @@ function postMessage(data) {
     self.postMessage(data);
 }
 
+/** @type {GLTFLoader | null} */
+let loader = null;
+
+/** @type {DRACOLoader | null} */
+let dracoLoader = null;
+
+/** @type {KTX2Loader | null } */
+let ktx2Loader = null;
+
 /**
  * @param {GLTFLoaderWorker_Message & { type: "load"}} req
  */
 async function loadGLTF(req) {
-    console.debug("[Worker] Loading GLTF from URL:", req.dracoDecoderPath);
+    if(debug) console.debug("[Worker] Loading GLTF from URL:", req.dracoDecoderPath);
 
-    const loader = new GLTFLoader();
+    loader ??= new GLTFLoader();
 
     loader.setMeshoptDecoder(MeshoptDecoder);
-    const dracoLoader = new DRACOLoader();
+
+    dracoLoader ??= new DRACOLoader();
     dracoLoader.setDecoderConfig({ type: 'js' });
     dracoLoader.setDecoderPath(req.dracoDecoderPath);
     loader.setDRACOLoader(dracoLoader);
 
-    const ktx2Loader = new KTX2Loader();
+    ktx2Loader ??= new KTX2Loader();
     ktx2Loader.workerConfig = req.ktx2LoaderConfig;
     ktx2Loader.setTranscoderPath(req.ktx2TranscoderPath);
     loader.setKTX2Loader(ktx2Loader);
 
 
     loader.load(req.url, gltf => {
-        console.log("WORKER", gltf);
+        if(debug) console.log("Loaded", req.url, gltf);
 
         /** @type {GLTFLoaderWorker_Message & { type: "loaded-gltf"}} */
         const data = {
@@ -89,7 +104,7 @@ function collectData(gltf, data) {
         const cache = gltf.parser.associations.get(key);
 
         if (!cache) {
-            console.warn("[Worker] No cache found for key:", key);
+            if(debug) console.warn("[Worker] No cache found for key:", key);
             continue;
         }
 

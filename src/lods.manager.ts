@@ -6,7 +6,6 @@ import { NEEDLE_progressive_plugin, plugins } from "./plugins/plugin.js";
 import { getRaycastMesh } from "./utils.js";
 import { applyDebugSettings, debug, debug_OverrideLodLevel } from "./lods.debug.js";
 import { PromiseGroup, PromiseGroupOptions } from "./lods.promise.js";
-import { createGLTFLoaderWorker } from "./worker/index.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
 const suppressProgressiveLoading = getParam("noprogressive");
@@ -539,6 +538,7 @@ export class LODsManager {
     private static skinnedMeshBoundsFrameOffsetCounter = 0;
     private static $skinnedMeshBoundsOffset = Symbol("gltf-progressive-skinnedMeshBoundsOffset");
 
+    // #region calculateLodLevel
     private calculateLodLevel(camera: Camera, mesh: Mesh, state: LOD_state, desiredDensity: number, result: LOD_Results): void {
 
 

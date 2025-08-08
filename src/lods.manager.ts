@@ -565,7 +565,8 @@ export class LODsManager {
         const has_mesh_lods = mesh_lods && mesh_lods.length > 0;
 
         const texture_lods_minmax = NEEDLE_progressive.getMaterialMinMaxLODsCount(mesh.material);
-        const has_texture_lods = texture_lods_minmax?.min_count != Infinity && texture_lods_minmax.min_count > 0 && texture_lods_minmax.max_count > 0;
+        const has_texture_lods = texture_lods_minmax.min_count !== Infinity && texture_lods_minmax.min_count >= 0 && texture_lods_minmax.max_count >= 0;
+
 
         // We can skip all this if we dont have any LOD information
         if (!has_mesh_lods && !has_texture_lods) {
@@ -790,7 +791,7 @@ export class LODsManager {
             if (changed) {
                 const level = mesh_lods?.[result.mesh_lod];
                 if (level) {
-                    console.log(`Mesh LOD changed: ${state.lastLodLevel_Mesh} → ${result.mesh_lod} (${level.density.toFixed(0)}) - ${mesh.name}`);
+                    console.debug(`Mesh LOD changed: ${state.lastLodLevel_Mesh} → ${result.mesh_lod} (density: ${level.densities?.[primitive_index].toFixed(0)}) | ${mesh.name}`);
                 }
             }
         }
@@ -830,11 +831,14 @@ export class LODsManager {
                     if (lod.max_height > pixelSizeOnScreen || (!foundLod && i === 0)) {
                         foundLod = true;
                         result.texture_lod = i;
-                        if (result.texture_lod < state.lastLodLevel_Texture) {
-                            const lod_pixel_height = lod.max_height;
-                            if (debugProgressiveLoading)
+
+                        if (debugProgressiveLoading) {
+                            if (result.texture_lod < state.lastLodLevel_Texture) {
+                                const lod_pixel_height = lod.max_height;
                                 console.log(`Texture LOD changed: ${state.lastLodLevel_Texture} → ${result.texture_lod} = ${lod_pixel_height}px \nScreensize: ${pixelSizeOnScreen.toFixed(0)}px, Coverage: ${(100 * state.lastScreenCoverage).toFixed(2)}%, Volume ${volume.toFixed(1)} \n${mesh.name}`);
+                            }
                         }
+
                         break;
                     }
                 }

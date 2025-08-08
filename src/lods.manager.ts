@@ -800,7 +800,7 @@ export class LODsManager {
             if (changed) {
                 const level = mesh_lods?.[result.mesh_lod];
                 if (level) {
-                    console.log(`Mesh LOD changed: ${state.lastLodLevel_Mesh} → ${result.mesh_lod} (density: ${level.densities?.[primitive_index].toFixed(0)}) | ${mesh.name}`);
+                    console.debug(`Mesh LOD changed: ${state.lastLodLevel_Mesh} → ${result.mesh_lod} (density: ${level.densities?.[primitive_index].toFixed(0)}) | ${mesh.name}`);
                 }
             }
         }

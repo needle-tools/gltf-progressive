@@ -79,7 +79,7 @@
     "nodemon": "^3.1.4",
     "npm-watch": "^0.13.0",
     "three": ">= 0.160.0",
-    "vite": "<= 4.3.9"
+    "vite": "7"
   },
   "publishConfig": {
     "access": "public",

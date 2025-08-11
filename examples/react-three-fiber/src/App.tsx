@@ -11,7 +11,7 @@ function MyModel() {
   const { gl } = useThree()
   const url = 'https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb'
   const { scene } = useGLTF(url, false, false, (loader) => {
-    useNeedleProgressive(url, gl, loader as any)
+    useNeedleProgressive(loader as any, gl as any);
   })
   return <primitive object={scene} />
 }

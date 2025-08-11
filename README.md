@@ -10,7 +10,7 @@ import { useNeedleProgressive } from "@needle-tools/gltf-progressive";
 
 // Before loading with GLTFLoader   
 // call 'useNeedleProgressive' once to register the loader plugin
-useNeedleProgressive("<asset_url>", webgl_renderer, gltf_loader)
+useNeedleProgressive(gltf_loader, webgl_renderer)
 ```
 
 ## Features
@@ -60,7 +60,7 @@ const gltfLoader = new GLTFLoader();
 const url = "https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file";
 
 // register the progressive loader plugin
-useNeedleProgressive(url, renderer, gltfLoader)
+useNeedleProgressive(gltfLoader, renderer)
 
 // just call the load method as usual
 gltfLoader.load(url, gltf => {
@@ -94,7 +94,7 @@ function MyModel() {
   const { gl } = useThree()
   const url = 'https://cloud.needle.tools/-/assets/Z23hmXBZN45qJ-ZN45qJ-world/file'
   const { scene } = useGLTF(url, false, false, (loader) => {
-    useNeedleProgressive(url, gl, loader as any)
+    useNeedleProgressive(loader as any, gl as any)
   })
   return <primitive object={scene} />
 }

@@ -89,7 +89,7 @@ function loadScene() {
     // Create a new GLTFLoader instance
     const gltfLoader = new GLTFLoader();
     /** Call this method to register the progressive loader */
-    useNeedleProgressive(url, renderer, gltfLoader)
+    useNeedleProgressive(gltfLoader, renderer)
 
     // just call the load method as usual
     gltfLoader.load(url, gltf => {

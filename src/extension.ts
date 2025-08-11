@@ -485,7 +485,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private readonly parser: GLTFParser;
     private readonly url: string;
 
-    constructor(parser: GLTFParser, url: string) {
+    constructor(parser: GLTFParser) {
+        const url = parser.options.path;
         if (debug) console.log("Progressive extension registered for", url);
         this.parser = parser;
         this.url = url;

@@ -24,13 +24,24 @@ declare type UseNeedleGLTFProgressiveOptions = {
     hints?: Omit<SmartLoadingHints, "progressive">;
 }
 
+/** @deprecated Use `useNeedleProgressive(loader, renderer)` - this method will be removed in gltf-progressive 4 */
+export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loader: GLTFLoader, opts?: UseNeedleGLTFProgressiveOptions);
+export function useNeedleProgressive(loader: GLTFLoader, renderer: WebGLRenderer, opts?: UseNeedleGLTFProgressiveOptions);
 /** Use this function to enable progressive loading of gltf models.
  * @param url The url of the gltf model.
  * @param renderer The renderer of the scene.
  * @param loader The gltf loader.
  * @param opts Options.
  * @returns The LODsManager instance.
- * @example In react-three-fiber:
+ *
+ * @example Usage with vanilla three.js:
+ * ```ts
+ * const url = 'https://yourdomain.com/yourmodel.glb'
+ * const loader = new GLTFLoader()
+ * useNeedleProgressive(url, renderer, loader)
+ * ```
+ *
+ * @example Usage with react-three-fiber:
  * ```ts
  *  const url = 'https://yourdomain.com/yourmodel.glb'
  * const { scene } = useGLTF(url, false, false, (loader) => {
@@ -39,14 +50,33 @@ declare type UseNeedleGLTFProgressiveOptions = {
  * return <primitive object={scene} />
  * ```
  */
-export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loader: GLTFLoader, opts?: UseNeedleGLTFProgressiveOptions) {
+export function useNeedleProgressive(...args: any[]) {
+    let url: string;
+    let renderer: WebGLRenderer;
+    let loader: GLTFLoader;
+    let opts: UseNeedleGLTFProgressiveOptions;
+    switch (args.length) {
+        case 2:
+            [loader, renderer] = args;
+            opts = {};
+            break;
+        case 3:
+            [loader, renderer, opts] = args;
+            break;
+        case 4: // legacy
+            [url, renderer, loader, opts] = args;
+            break;
+        default:
+            throw new Error("Invalid arguments");
+    }
+
     createLoaders(renderer);
     addDracoAndKTX2Loaders(loader);
     configureLoader(loader, {
         progressive: true,
         ...opts?.hints,
     });
-    loader.register(p => new NEEDLE_progressive(p, url));
+    loader.register(p => new NEEDLE_progressive(p));
 
     const lod = LODsManager.get(renderer);
     if (opts?.enableLODsManager !== false) {

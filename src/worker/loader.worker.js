@@ -1,13 +1,10 @@
 // import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/loaders/GLTFLoader.js";
 
-/** @ts-ignore */
-import { GLTFLoader } from "https://esm.sh/three@0.168.0/examples/jsm/loaders/GLTFLoader.js";
-/** @ts-ignore */
-import { MeshoptDecoder } from 'https://esm.sh/three@0.168.0/examples/jsm/libs/meshopt_decoder.module.js';
-/** @ts-ignore */
-import { DRACOLoader } from 'https://esm.sh/three@0.168.0/examples/jsm/loaders/DRACOLoader.js';
-/** @ts-ignore */
-import { KTX2Loader } from 'https://esm.sh/three@0.168.0/examples/jsm/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
+
 
 
 let debug = false;

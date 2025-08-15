@@ -65,11 +65,6 @@ export class LODsManager {
      */
     static debugDrawLine?: (a: Vector3, b: Vector3, color: number) => void;
 
-    /**
-     * Force override the LOD level for all objects in the scene
-     */
-    static overrideGlobalLodLevel?: number;
-
 
     /** @internal */
     static getObjectLODState(object: Object3D): LOD_state | undefined {
@@ -109,6 +104,12 @@ export class LODsManager {
 
     /** @deprecated use static `LODsManager.addPlugin()` method. This getter will be removed in later versions */
     get plugins() { return plugins; }
+
+    /**
+     * Force override the LOD level for all objects (meshes + textures) rendered in the scene
+     * @default undefined automatically calculate LOD level
+     */
+    overrideLodLevel: undefined | number = undefined;
 
     /**
      * The target triangle density is the desired max amount of triangles on screen when the mesh is filling the screen.  
@@ -404,7 +405,7 @@ export class LODsManager {
             plugin.onBeforeUpdateLOD?.(this.renderer, scene, camera, object);
         }
 
-        const debugLodLevel = LODsManager.overrideGlobalLodLevel !== undefined ? LODsManager.overrideGlobalLodLevel : debug_OverrideLodLevel;
+        const debugLodLevel = this.overrideLodLevel !== undefined ? this.overrideLodLevel : debug_OverrideLodLevel;
         if (debugLodLevel >= 0) {
             levels.mesh_lod = debugLodLevel;
             levels.texture_lod = debugLodLevel;

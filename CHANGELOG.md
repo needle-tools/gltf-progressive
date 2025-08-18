@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.3.1] - 2025-08-18
+- Add: `waitForFirstCapture` option to LodsManager (e.g. `lodsManager.awaitLoading({waitForFirstCapture: true})`) to be able to not resolve the promise until at any promise has been capture (e.g. any LOD has started and finished loading). If necessary a signal can be provided to timeout.
+
 ## [3.3.0] - 2025-08-15
 - Add LODsManager `overrideLodLevel` property. When set to a number >= 0 texture and mesh LODs will be loaded for that level
 

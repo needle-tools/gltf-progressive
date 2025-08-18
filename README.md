@@ -141,7 +141,6 @@ Create a new class extending `NEEDLE_progressive_plugin` and add your plugin by 
 Call `lodsManager.awaitLoading(<opts?>)` to receive a promise that will resolve when all object LODs that start loading during the next frame have finished to update. Use the optional options parameter to e.g. wait for more frames.
 
 ### Global LOD level override
-Set the static `LODsManager.overrideGlobalLodLevel = <level>` to any number between 0 and 6. To disable the override again set it to `undefined`.
 
 ### LOD Manager settings
 These settings are available on the LOD manager instance:
@@ -150,6 +149,7 @@ These settings are available on the LOD manager instance:
 - `updateInterval` - The update interval in frames. If set to 0, the LODs will be updated every frame. If set to 2, the LODs will be updated every second frame, etc.
 - `pause` - If set to true, the LODsManager will not update the LODs.
 - `manual` - When set to true the LODsManager will not update the LODs. This can be used to manually update the LODs using the `update` method. Otherwise the LODs will be updated automatically when the renderer renders the scene.
+- `overrideLodLevel` - Can be set to any number between 0 and 6 to override the lod level to be loaded. To disable the override again set it to `undefined`.
 
 ### Automatically use low-poly meshes for raycasting
 Simply call `useRaycastMeshes(true)` to enable faster raycasting when using the the THREE.Raycaster. This can again be disabled by calling `useRaycastMeshes(false)`. Calling this method is only necessary once to enable it.  

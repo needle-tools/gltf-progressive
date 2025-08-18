@@ -5,10 +5,16 @@ type PromiseType = "texture" | "mesh";
 export type PromiseGroupOptions = {
     /** Name for debugging purposes */
     name?: string;
-    /** Define how many frames new LOD promises will be captured and awaited. The group will resolve after all promises captured during this time have resolved (or when the abort signal is triggered).
+    /** Define how many frames new LOD promises will at least be captured and awaited. The group will resolve after all promises captured during this time have resolved (or when the abort signal is triggered).
      * @default 2 frames, which means the group will capture promises for 2 frames before resolving.
     */
     frames?: number;
+
+    /** If set to true at least one LOD loading promise must be captured before this promise will resolve.   
+     *  After the first promise has been captured the group will wait for the amount of frames specified in the `frames` option. 
+     */
+    waitForFirstCapture?: boolean;
+
     /** An optional signal to abort the promise */
     signal?: AbortSignal;
 
@@ -47,25 +53,30 @@ export class PromiseGroup {
     }
 
 
-    readonly frame_start: number;
-    readonly frame_capture_end: number;
-
     readonly ready: Promise<PromiseGroupResolveResult>;
-    private _resolve!: ((result: PromiseGroupResolveResult) => void);
-    private readonly _signal?: AbortSignal;
 
-    /**
-     * The number of promises that have been added to this group so far.
-     */
+    /** The number of promises that have been added to this group so far */
     get awaitedCount() {
         return this._addedCount;
     }
+    /** The number of promises that have been resolved */
     get resolvedCount() {
         return this._resolvedCount;
     }
+    /** The number of promises that are in-flight */
     get currentlyAwaiting() {
         return this._awaiting.length;
     }
+
+    
+    private _resolve!: ((result: PromiseGroupResolveResult) => void);
+    private readonly _signal?: AbortSignal;
+
+    /** start frame can be undefined if the user configured this group to wait for the first promise.
+     * Then the start frame will be set when the first promise has been added to the group */
+    private _frame_start: number | undefined;
+    /** How many frames to capture since the start frame */
+    private _frames_to_capture: number;
 
     private _resolved = false;
     private _addedCount: number = 0;
@@ -78,9 +89,8 @@ export class PromiseGroup {
     constructor(frame: number, options: PromiseGroupOptions) {
         const minFrames = 2; // wait at least 2 frames to capture promises
         const framesToCapture = Math.max(options.frames ?? minFrames, minFrames); // default to 2 frames and make sure it's at least 2 frames
-
-        this.frame_start = frame;
-        this.frame_capture_end = frame + framesToCapture;
+        this._frame_start = options.waitForFirstCapture ? undefined : frame;
+        this._frames_to_capture = framesToCapture;
         this.ready = new Promise<PromiseGroupResolveResult>((resolve) => {
             this._resolve = resolve;
         })
@@ -100,8 +110,14 @@ export class PromiseGroup {
 
     update(frame: number) {
         this._currentFrame = frame;
+
+        // Check if start frame is not defined yet but we have added objects since the last update
+        if(this._frame_start === undefined && this._addedCount > 0) {
+            this._frame_start = frame;
+        }
+
         // If we've passes the frame capture end frame and didn't add any promises, we resolve immediately
-        if (this._signal?.aborted || (this._currentFrame > this.frame_capture_end && this._awaiting.length === 0)) {
+        if (this._signal?.aborted || (this._awaiting.length === 0 && (this._frame_start !== undefined && (frame > this._frame_start + this._frames_to_capture)))) {
             this.resolveNow();
         }
     }
@@ -113,7 +129,7 @@ export class PromiseGroup {
             if (debug) console.warn("PromiseGroup: Trying to add a promise to a resolved group, ignoring.");
             return;
         }
-        if (this._currentFrame > this.frame_capture_end) {
+        if (this._frame_start !== undefined && this._currentFrame > this._frame_start + this._frames_to_capture) {
             return; // we are not capturing any more promises
         }
         if (this._maxPromisesPerObject >= 1) {

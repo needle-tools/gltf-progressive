@@ -5,7 +5,7 @@ type PromiseType = "texture" | "mesh";
 export type PromiseGroupOptions = {
     /** Name for debugging purposes */
     name?: string;
-    /** Define many frames new LOD promises will be captured and awaited. The group will resolve after all promises captured during this time have resolved (or when the abort signal is triggered).
+    /** Define how many frames new LOD promises will be captured and awaited. The group will resolve after all promises captured during this time have resolved (or when the abort signal is triggered).
      * @default 2 frames, which means the group will capture promises for 2 frames before resolving.
     */
     frames?: number;

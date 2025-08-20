@@ -6,7 +6,7 @@ import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 
 
 let DEFAULT_DRACO_DECODER_LOCATION = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
-let DEFAULT_KTX2_TRANSCODER_LOCATION = 'https://www.gstatic.com/basis-universal/versioned/2021-04-15-ba1c3e4/';
+let DEFAULT_KTX2_TRANSCODER_LOCATION = "https://cdn.needle.tools/static/three/0.179.1/basis2/";// 'https://www.gstatic.com/basis-universal/versioned/2021-04-15-ba1c3e4/';
 const defaultDraco = DEFAULT_DRACO_DECODER_LOCATION;
 const defaultKTX2 = DEFAULT_KTX2_TRANSCODER_LOCATION;
 

@@ -40,12 +40,12 @@ Examples are in the `/examples` directory. Live versions can be found in the lin
 - [Codesandbox](https://codesandbox.io/dashboard/sandboxes/gltf-progressive)
 
 
-## Videos
+<!-- ## Videos
 <a href="https://youtu.be/7EjL0BRfIp8" target="_blank">![Progressive glTF — comparison with traditional three.js optimization
 ](https://engine.needle.tools/demos/gltf-progressive/video-comparison-throttled-thumbnail-1.webp)</a>  
 *Progressive glTF — comparison with traditional three.js optimization* 
   
-<br/>
+<br/> -->
 
 # Usage
 
@@ -132,6 +132,10 @@ Full model-viewer example at: `examples/modelviewer.html`
 [Needle Engine](https://needle.tools) natively supports progressive loading of these glTF files! See [docs.needle.tools](https://docs.needle.tools) for more information. 
 
 
+# How can I generate assets for progressive loading
+Use [Needle Cloud](https://cloud.needle.tools) to generate LODs for your assets (includes hosting, global CDN, password protection, versioning, CLI support...) or use one of the [Needle integrations for Unity or Blender](https://engine.needle.tools/docs/getting-started/#choose-your-workflow).
+
+
 # Advanced
 
 ### Add a LOD Manager plugin to receive callbacks per object
@@ -157,9 +161,6 @@ Simply call `useRaycastMeshes(true)` to enable faster raycasting when using the 
 ### Get LOW poly meshes for physics simulation
 Call `getRaycastMesh(<your_mesh_object>)`
 
-
-# How can I generate assets for progressive loading
-Use [Needle Cloud](https://cloud.needle.tools) to generate LODs for your assets (includes hosting, global CDN, password protection, versioning, CLI support...) or use one of the Needle integrations for Unity or Blender.
 
 # Contact ✒️
 <b>[🌵 needle — tools for creators](https://needle.tools)</b> • 

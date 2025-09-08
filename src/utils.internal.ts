@@ -15,18 +15,17 @@ export function getParam(name: string): boolean | string {
 }
 
 export function resolveUrl(source: string | undefined, uri: string): string {
-    if (uri === undefined) {
+    if (uri === undefined || source === undefined) {
         return uri;
     }
-    if (uri.startsWith("./")) {
+    if (uri.startsWith("./") ||
+        uri.startsWith("http") ||
+        uri.startsWith("data:") ||
+        uri.startsWith("blob:")
+    ) {
         return uri;
     }
-    if (uri.startsWith("http")) {
-        return uri;
-    }
-    if (source === undefined) {
-        return uri;
-    }
+    // TODO: why not just use new URL(uri, source).href ?
     const pathIndex = source.lastIndexOf("/");
     if (pathIndex >= 0) {
         // Take the source uri as the base path
@@ -42,15 +41,21 @@ export function resolveUrl(source: string | undefined, uri: string): string {
 }
 
 
-let _ismobile: boolean | undefined;
-/** @returns `true` if it's a phone or tablet */
+/** Check if the current device is a mobile device. 
+ * @returns `true` if it's a phone or tablet 
+ */
 export function isMobileDevice() {
     if (_ismobile !== undefined) return _ismobile;
     _ismobile = /iPhone|iPad|iPod|Android|IEMobile/i.test(navigator.userAgent);
     if (getParam("debugprogressive")) console.log("[glTF Progressive]: isMobileDevice", _ismobile);
     return _ismobile;
 }
+let _ismobile: boolean | undefined;
 
+/**
+ * Check if we are running in a development server (localhost or ip address).
+ * @returns `true` if we are running in a development server (localhost or ip address).
+ */
 export function isDevelopmentServer() {
     if (typeof window === "undefined") return false;
     const url = new URL(window.location.href);
@@ -63,6 +68,11 @@ export function isDevelopmentServer() {
 
 export type SlotReturnValue<T = any> = { use?: ((promise: Promise<T>) => void) };
 
+
+/**
+ * A promise queue that limits the number of concurrent promises.
+ * Use the `slot` method to request a slot for a promise with a specific key. The returned promise resolves to an object with a `use` method that can be called to add the promise to the queue.
+ */
 export class PromiseQueue<T = any> {
 
     private readonly _running: Map<string, Promise<T>> = new Map();

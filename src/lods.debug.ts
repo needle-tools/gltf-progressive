@@ -3,7 +3,7 @@ import { getParam } from "./utils.internal.js";
 
 export const debug = getParam("debugprogressive");
 
-let debug_RenderWireframe: boolean | undefined;
+let debug_RenderWireframe: boolean | undefined = undefined;
 export let debug_OverrideLodLevel: number = -1; // -1 is automatic
 
 if (debug) {
@@ -33,13 +33,15 @@ export function applyDebugSettings(material: Material | Array<Material>) {
 
     if (!debug) return;
 
-    if (Array.isArray(material)) {
-        for (const mat of material) {
-            applyDebugSettings(mat);
-        }
-    } else if (material) {
-        if ("wireframe" in material) {
-            material.wireframe = debug_RenderWireframe === true;
+    if (debug_RenderWireframe !== undefined) {
+        if (Array.isArray(material)) {
+            for (const mat of material) {
+                applyDebugSettings(mat);
+            }
+        } else if (material) {
+            if ("wireframe" in material) {
+                material.wireframe = debug_RenderWireframe === true;
+            }
         }
     }
 }

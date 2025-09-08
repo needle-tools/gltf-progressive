@@ -39,6 +39,7 @@ async function run() {
     // copy examples
     console.log("Copy examples...");
     copyRecursive("examples", outDir + "/examples");
+    copyRecursive("NEEDLE_progressive", outDir + "/NEEDLE_progressive");
     postprocessExamples();
 }
 

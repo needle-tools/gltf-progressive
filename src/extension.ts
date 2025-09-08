@@ -387,7 +387,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
 
     // #region INTERNAL
-    
+
     private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null): Promise<Texture | null> {
         if (current?.isTexture !== true) {
             return Promise.resolve(null);
@@ -572,22 +572,22 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      */
     static registerTexture = (url: string, tex: Texture, level: number, index: number, ext: NEEDLE_ext_progressive_texture) => {
         if (!tex) {
-            if (debug) console.error("gltf-progressive: Called register texture without texture");
+            if (debug) console.error("!! gltf-progressive: Called register texture without texture");
             return;
         }
         if (debug) {
             const width = tex.image?.width || tex.source?.data?.width || 0;
             const height = tex.image?.height || tex.source?.data?.height || 0;
-            console.log(`> Progressive: register texture[${index}] "${tex.name || tex.uuid}", Current: ${width}x${height}, Max: ${ext.lods[0]?.width}x${ext.lods[0]?.height}, uuid: ${tex.uuid}`, ext, tex);
+            console.log(`> gltf-progressive: register texture[${index}] "${tex.name || tex.uuid}", Current: ${width}x${height}, Max: ${ext.lods[0]?.width}x${ext.lods[0]?.height}, uuid: ${tex.uuid}`, ext, tex);
         }
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
         // see https://github.com/needle-tools/needle-engine-support/issues/133
         if (tex.source) tex.source[$progressiveTextureExtension] = ext;
 
-        const LODKEY = ext.guid;
-        NEEDLE_progressive.assignLODInformation(url, tex, LODKEY, level, index);
-        NEEDLE_progressive.lodInfos.set(LODKEY, ext);
-        NEEDLE_progressive.lowresCache.set(LODKEY, tex);
+        const key = ext.guid;
+        NEEDLE_progressive.assignLODInformation(url, tex, key, level, index, ext);
+        NEEDLE_progressive.lodInfos.set(key, ext);
+        NEEDLE_progressive.lowresCache.set(key, tex);
     };
 
     /**
@@ -661,7 +661,11 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
         if (!lodInfo) lodInfo = NEEDLE_progressive.lodInfos.get(LODKEY);
 
-        if (lodInfo) {
+        if (!lodInfo) {
+            if (debug)
+                console.warn(`Can not load LOD ${level}: no LOD info found for \"${LODKEY}\" ${current.name}`, current.type, NEEDLE_progressive.lodInfos);
+        }
+        else {
 
             if (level > 0) {
                 let useLowRes = false;
@@ -921,17 +925,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 }
             }
         }
-        else {
-            if (debug)
-                console.warn(`Can not load LOD ${level}: no LOD info found for \"${LODKEY}\" ${current.name}`, current.type);
-        }
         return null;
     }
 
     private static maxConcurrent = 50;
     private static queue: PromiseQueue = new PromiseQueue(NEEDLE_progressive.maxConcurrent, { debug: debug != false });
 
-    private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number) {
+    private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number): void {
         if (!res) return;
         if (!res.userData) res.userData = {};
         const info: LODInformation = new LODInformation(url, key, level, index);

@@ -1,8 +1,8 @@
-import { BufferAttribute, BufferGeometry, Group, InterleavedBuffer, InterleavedBufferAttribute, Material, Mesh, Object3D, RawShaderMaterial, ShaderMaterial, Texture, TextureLoader } from "three";
+import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, ShaderMaterial, Texture, TextureLoader } from "three";
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { getParam, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { getParam, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -11,6 +11,7 @@ import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 import { plugins } from "./plugins/plugin.js";
 import { debug } from "./lods.debug.js";
 import { getWorker, GLTFLoaderWorker } from "./worker/loader.mainthread.js";
+import { NEEDLE_ext_progressive_mesh, NEEDLE_ext_progressive_texture, NEEDLE_progressive_ext } from "./extension.model.js";
 
 const useWorker = getParam("gltf-progressive-worker");
 const reduceMipmaps = getParam("gltf-progressive-reduce-mipmaps");
@@ -21,45 +22,14 @@ const $progressiveTextureExtension = Symbol("needle-progressive-texture");
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> };
 
 
-
-
 export const EXTENSION_NAME = "NEEDLE_progressive";
 
-declare type NEEDLE_progressive_model_LOD = {
-    path: string,
-    hash?: string
-}
-
-/** This is the data structure we have in the NEEDLE_progressive extension */
-declare type NEEDLE_progressive_ext = {
-    guid: string,
-    lods: Array<NEEDLE_progressive_model_LOD>
-}
-
-export declare type NEEDLE_ext_progressive_texture = NEEDLE_progressive_ext & {
-    lods: Array<NEEDLE_progressive_model_LOD & {
-        width: number,
-        height: number,
-    }>
-}
-export declare type NEEDLE_ext_progressive_mesh = NEEDLE_progressive_ext & {
-    /** @deprecated Removed */
-    density: number;
-    lods: Array<NEEDLE_progressive_model_LOD & {
-        /** @deprecated Use densities with the primitive index */
-        density: number,
-        indexCount: number;
-        vertexCount: number;
-        // The undefined flag can be removed after a few versions
-        densities: number[] | undefined,
-    }>
-}
 
 /** 
  * This is the result of a progressive texture loading event for a material's texture slot in {@link NEEDLE_progressive.assignTextureLOD}
  * @internal
  */
-export declare type ProgressiveMaterialTextureLoadingResult = {
+type ProgressiveMaterialTextureLoadingResult = {
     /** the material the progressive texture was loaded for */
     material: Material,
     /** the slot in the material where the texture was loaded */
@@ -70,11 +40,15 @@ export declare type ProgressiveMaterialTextureLoadingResult = {
     level: number;
 }
 
-declare type TextureLODsMinMaxInfo = {
+type TextureLODsMinMaxInfo = {
     min_count: number;
     max_count: number;
     lods: Array<{ min_height: number, max_height: number }>,
 }
+
+
+
+// #region EXT
 
 /**
  * The NEEDLE_progressive extension for the GLTFLoader is responsible for loading progressive LODs for meshes and textures.  
@@ -97,6 +71,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     get name(): string {
         return EXTENSION_NAME;
     }
+
+    // #region PUBLIC API
 
     static getMeshLODExtension(geo: BufferGeometry): NEEDLE_ext_progressive_mesh | null {
         const info = this.getAssignedLODInformation(geo);
@@ -408,6 +384,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return Promise.resolve(null);
     }
 
+
+
+    // #region INTERNAL
+    
     private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null): Promise<Texture | null> {
         if (current?.isTexture !== true) {
             return Promise.resolve(null);
@@ -446,7 +426,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             const prevCount = tex.mipmaps.length;
                             tex.mipmaps.length = Math.min(tex.mipmaps.length, 3);
                             if (prevCount !== tex.mipmaps.length) {
-                                if(debug) console.debug(`Reduced mipmap count from ${prevCount} to ${tex.mipmaps.length} for ${tex.uuid}: ${tex.image?.width}x${tex.image?.height}.`);
+                                if (debug) console.debug(`Reduced mipmap count from ${prevCount} to ${tex.mipmaps.length} for ${tex.uuid}: ${tex.image?.width}x${tex.image?.height}.`);
                             }
                         }
                         material[slot] = tex;
@@ -980,8 +960,6 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         // }
         // We need to clone e.g. when the same texture is used multiple times (but with e.g. different wrap settings)
         // This is relatively cheap since it only stores settings
-        // This should only happen once ever for every texture
-        // const original = target;
         {
             if (debug === "verbose") console.debug("Copy texture settings\n", source.uuid, "\n", target.uuid);
             target = target.clone();
@@ -1011,8 +989,6 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 }
 
 declare type ObjectThatMightHaveLODs = { name: string, userData?: { LODS?: LODInformation } } | Texture & { source?: { LODS?: LODInformation } };
-
-// declare type GetLODInformation = () => LODInformation | null;
 
 class LODInformation {
     readonly url: string;

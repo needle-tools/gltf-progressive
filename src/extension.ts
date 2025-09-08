@@ -585,7 +585,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (tex.source) tex.source[$progressiveTextureExtension] = ext;
 
         const key = ext.guid;
-        NEEDLE_progressive.assignLODInformation(url, tex, key, level, index, ext);
+        NEEDLE_progressive.assignLODInformation(url, tex, key, level, index);
         NEEDLE_progressive.lodInfos.set(key, ext);
         NEEDLE_progressive.lowresCache.set(key, tex);
     };

@@ -1,5 +1,5 @@
 import { WebGLRenderer, Scene, Camera, Object3D, Mesh } from 'three';
-import { NEEDLE_ext_progressive_mesh } from '../extension.js';
+import { NEEDLE_ext_progressive_mesh } from '../extension.model.js';
 
 /**
  * This interface is used to define a plugin for the progressive extension. It can be registered using the `registerPlugin` function.

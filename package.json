@@ -1,6 +1,6 @@
 {
   "name": "@needle-tools/gltf-progressive",
-  "version": "3.3.2",
+  "version": "3.3.3",
   "description": "three.js support for loading glTF or GLB files that contain progressive loading data",
   "homepage": "https://needle.tools",
   "author": {
@@ -50,7 +50,8 @@
     "CHANGELOG.md",
     "gltf-progressive.js",
     "gltf-progressive.min.js",
-    "gltf-progressive.umd.cjs"
+    "gltf-progressive.umd.cjs",
+    "NEEDLE_progressive"
   ],
   "watch": {
     "build:lib": {

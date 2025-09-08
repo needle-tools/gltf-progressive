@@ -162,6 +162,10 @@ Simply call `useRaycastMeshes(true)` to enable faster raycasting when using the 
 Call `getRaycastMesh(<your_mesh_object>)`
 
 
+# Extension
+Read more about the [NEEDLE_progressive extension](./NEEDLE_progressive/README.md)
+
+
 # Contact ✒️
 <b>[🌵 needle — tools for creators](https://needle.tools)</b> • 
 [Twitter](https://twitter.com/NeedleTools) • 

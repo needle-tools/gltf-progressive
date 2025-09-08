@@ -68,13 +68,13 @@ Mesh extension for progressive mesh loading, inheriting from `NEEDLE_progressive
   "guid": "texture-asset-123",
   "lods": [
     {
-      "path": "./textures/diffuse_1024.jpg",
+      "path": "./textures/image_diffuse_1024.glb",
       "hash": "abc123",
       "width": 1024,
       "height": 1024
     },
     {
-      "path": "./textures/diffuse_512.jpg",
+      "path": "./textures/image_diffuse_512.glb",
       "width": 512,
       "height": 512
     }
@@ -89,14 +89,14 @@ Mesh extension for progressive mesh loading, inheriting from `NEEDLE_progressive
   "guid": "mesh-asset-456",
   "lods": [
     {
-      "path": "./meshes/high_detail.glb",
+      "path": "./meshes/mesh_0_high_detail.glb",
       "hash": "def456",
       "indexCount": 15000,
       "vertexCount": 8000,
       "densities": [100000, 50000]
     },
     {
-      "path": "./meshes/low_detail.glb",
+      "path": "./meshes/mesh_1_low_detail.glb",
       "indexCount": 3000,
       "vertexCount": 1500,
       "densities": [100000, 50000]

@@ -1,4 +1,4 @@
-import { debug } from "./lods.debug";
+import { debug } from "./lods.debug.js";
 
 type PromiseType = "texture" | "mesh";
 

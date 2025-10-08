@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.3.5] - 2025-10-08
+- Chore: debug logging for mesh_lod use `console.log` instead of `console.debug`
+
 ## [3.3.4] - 2025-09-10
 - Fix: import with missing `.js` extension
 

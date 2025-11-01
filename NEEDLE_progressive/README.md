@@ -1,6 +1,6 @@
 # NEEDLE Progressive Extensions Schema
 
-This document describes the NEEDLE progressive mesh and texture extensions.
+This document describes the `NEEDLE_progressive` mesh and texture extensions that are used for progressive loading with `gltf-progressive`. 
 
 ## Extension Types
 

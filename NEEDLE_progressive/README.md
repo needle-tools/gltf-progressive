@@ -2,31 +2,11 @@
 
 This document describes the NEEDLE progressive mesh and texture extensions.
 
-## Base Types
-
-### NEEDLE_progressive_model_LOD
-
-Represents a single Level of Detail (LOD) file reference.
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `path` | `string` | Yes | Relative path to the LOD file |
-| `hash` | `string` | No | Optional hash for file verification |
-
-### NEEDLE_progressive_ext
-
-Base extension format for progressive assets.
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `guid` | `string` | Yes | Unique identifier of the object (texture, mesh) the LODs belong to |
-| `lods` | `Array<NEEDLE_progressive_model_LOD>` | Yes | Array of available LOD levels |
-
 ## Extension Types
 
-### NEEDLE_ext_progressive_texture
+### `NEEDLE_progressive` texture extension
 
-Texture extension for progressive texture loading, inheriting from `NEEDLE_progressive_ext`.
+Texture extension for progressive texture loading, inheriting from `NEEDLE_progressive_base`.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
@@ -41,28 +21,7 @@ Texture extension for progressive texture loading, inheriting from `NEEDLE_progr
 | `width` | `number` | Yes | Texture width in pixels |
 | `height` | `number` | Yes | Texture height in pixels |
 
-### NEEDLE_ext_progressive_mesh
-
-Mesh extension for progressive mesh loading, inheriting from `NEEDLE_progressive_ext`.
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `guid` | `string` | Yes | Inherited from base type |
-| `lods` | `Array<MeshLOD>` | Yes | Array of mesh LOD levels with geometry data |
-
-**MeshLOD Properties:**
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `path` | `string` | Yes | Relative path to the mesh LOD file |
-| `hash` | `string` | No | Optional hash for file verification |
-| `densities` | `number[]` | Yes | Density values per primitive |
-| `indexCount` | `number` | No | Number of indices in LOD0 |
-| `vertexCount` | `number` | No | Number of vertices in LOD0 |
-
-## Usage Examples
-
-### Texture Extension Example
-
+#### Example
 ```json
 {
   "guid": "texture-asset-123",
@@ -82,7 +41,25 @@ Mesh extension for progressive mesh loading, inheriting from `NEEDLE_progressive
 }
 ```
 
-### Mesh Extension Example
+### `NEEDLE_progressive` mesh extension
+
+Mesh extension for progressive mesh loading, inheriting from `NEEDLE_progressive_base`.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `guid` | `string` | Yes | Inherited from base type |
+| `lods` | `Array<MeshLOD>` | Yes | Array of mesh LOD levels with geometry data |
+
+**MeshLOD Properties:**
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `path` | `string` | Yes | Relative path to the mesh LOD file |
+| `hash` | `string` | No | Optional hash for file verification |
+| `densities` | `number[]` | Yes | Density values per primitive |
+| `indexCount` | `number` | No | Number of indices in LOD0 |
+| `vertexCount` | `number` | No | Number of vertices in LOD0 |
+
+##### Example
 
 ```json
 {
@@ -104,3 +81,24 @@ Mesh extension for progressive mesh loading, inheriting from `NEEDLE_progressive
   ]
 }
 ```
+
+## Base Types
+
+### LOD
+
+Represents a single Level of Detail (LOD) file reference.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `path` | `string` | Yes | Relative path to the LOD file |
+| `hash` | `string` | No | Optional hash for file verification |
+
+### NEEDLE_progressive_base
+
+Base extension format for progressive assets.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `guid` | `string` | Yes | Unique identifier of the object (texture, mesh) the LODs belong to |
+| `lods` | `Array<LOD>` | Yes | Array of available LOD levels |
+

@@ -16,6 +16,14 @@ import { NEEDLE_ext_progressive_mesh, NEEDLE_ext_progressive_texture, NEEDLE_pro
 const useWorker = getParam("gltf-progressive-worker");
 const reduceMipmaps = getParam("gltf-progressive-reduce-mipmaps");
 
+/**
+ * Cache entry type for previously loaded LOD resources.
+ * - `WeakRef`: resolved single resource (Texture or BufferGeometry) — allows garbage collection when unused
+ * - `Promise`: in-flight loading request, resolved array result, or resolved null (failed load)
+ * @internal
+ */
+type LODCacheEntry = WeakRef<Texture | BufferGeometry> | Promise<null | Texture | BufferGeometry | BufferGeometry[]>;
+
 const $progressiveTextureExtension = Symbol("needle-progressive-texture");
 
 /** Removes the readonly attribute from all properties of an object */
@@ -623,12 +631,50 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     };
 
 
+    /**
+     * Dispose cached resources to free memory.
+     * Call this when a model is removed from the scene to allow garbage collection of its LOD resources.
+     * @param guid Optional GUID to dispose resources for a specific model. If omitted, all cached resources are cleared.
+     */
+    static dispose(guid?: string): void {
+        if (guid) {
+            this.lodInfos.delete(guid);
+            this.lowresCache.delete(guid);
+            for (const [key] of this.previouslyLoaded) {
+                if (key.includes(guid)) {
+                    this.previouslyLoaded.delete(key);
+                }
+            }
+        } else {
+            this.lodInfos.clear();
+            this.lowresCache.clear();
+            this.previouslyLoaded.clear();
+        }
+    }
+
+
     /** A map of key = asset uuid and value = LOD information */
     private static readonly lodInfos = new Map<string, NEEDLE_progressive_ext>();
-    /** cache of already loaded mesh lods */
-    private static readonly previouslyLoaded: Map<string, Promise<null | Texture | BufferGeometry | BufferGeometry[]>> = new Map();
+    /** cache of already loaded mesh lods. Uses WeakRef for single resources to allow garbage collection when unused. */
+    private static readonly previouslyLoaded: Map<string, LODCacheEntry> = new Map();
     /** this contains the geometry/textures that were originally loaded */
     private static readonly lowresCache: Map<string, Texture | BufferGeometry[]> = new Map();
+
+    /**
+     * FinalizationRegistry to automatically clean up `previouslyLoaded` cache entries
+     * when their associated three.js resources are garbage collected by the browser.
+     * The held value is the cache key string used in `previouslyLoaded`.
+     */
+    private static readonly _resourceRegistry = new FinalizationRegistry<string>((cacheKey: string) => {
+        const entry = NEEDLE_progressive.previouslyLoaded.get(cacheKey);
+        // Only delete if the entry is still a WeakRef and the resource is gone
+        if (entry instanceof WeakRef) {
+            if (!entry.deref()) {
+                NEEDLE_progressive.previouslyLoaded.delete(cacheKey);
+                if (debug) console.log(`[gltf-progressive] Cache entry auto-cleaned (GC'd): ${cacheKey}`);
+            }
+        }
+    });
 
     private static readonly workers: Array<GLTFLoaderWorker> = [];
     private static _workersIndex = 0;
@@ -708,41 +754,71 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
                 const slot = await this.queue.slot(lod_url);
 
-                // check if the requested file is currently being loaded
+                // check if the requested file is currently being loaded or was previously loaded
                 const existing = this.previouslyLoaded.get(KEY);
                 if (existing !== undefined) {
                     if (debugverbose) console.log(`LOD ${level} was already loading/loaded: ${KEY}`);
-                    let res = await existing.catch(err => {
-                        console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
-                        return null;
-                    });
-                    let resouceIsDisposed = false;
-                    if (res == null) {
-                        // if the resource is null the last loading result didnt succeed (maybe because the url doesnt exist)
-                        // in which case we don't attempt to load it again
+
+                    if (existing instanceof WeakRef) {
+                        // Previously resolved resource — check if still alive in memory
+                        const derefed = existing.deref();
+                        if (derefed) {
+                            let res: Texture | BufferGeometry = derefed;
+                            let resourceIsDisposed = false;
+                            if (res instanceof Texture && current instanceof Texture) {
+                                if (res.image?.data || res.source?.data) {
+                                    res = this.copySettings(current, res);
+                                } else {
+                                    resourceIsDisposed = true;
+                                }
+                            }
+                            else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
+                                if (!res.attributes.position?.array) {
+                                    resourceIsDisposed = true;
+                                }
+                            }
+                            if (!resourceIsDisposed) {
+                                return res as T;
+                            }
+                        }
+                        // Resource was garbage collected or disposed — remove stale entry and re-load
+                        this.previouslyLoaded.delete(KEY);
+                        if (debug) console.log(`[gltf-progressive] Re-loading GC'd/disposed resource: ${KEY}`);
                     }
-                    else if (res instanceof Texture && current instanceof Texture) {
-                        // check if the texture has been disposed or not
-                        if (res.image?.data || res.source?.data) {
-                            res = this.copySettings(current, res);
+                    else {
+                        // Promise — loading in progress or previously completed
+                        let res = await existing.catch(err => {
+                            console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
+                            return null;
+                        });
+                        let resouceIsDisposed = false;
+                        if (res == null) {
+                            // if the resource is null the last loading result didnt succeed (maybe because the url doesnt exist)
+                            // in which case we don't attempt to load it again
                         }
-                        // if it has been disposed we need to load it again
-                        else {
-                            resouceIsDisposed = true;
-                            this.previouslyLoaded.delete(KEY);
+                        else if (res instanceof Texture && current instanceof Texture) {
+                            // check if the texture has been disposed or not
+                            if (res.image?.data || res.source?.data) {
+                                res = this.copySettings(current, res);
+                            }
+                            // if it has been disposed we need to load it again
+                            else {
+                                resouceIsDisposed = true;
+                                this.previouslyLoaded.delete(KEY);
+                            }
                         }
-                    }
-                    else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
-                        if (res.attributes.position?.array) {
-                            // the geometry is OK
+                        else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
+                            if (res.attributes.position?.array) {
+                                // the geometry is OK
+                            }
+                            else {
+                                resouceIsDisposed = true;
+                                this.previouslyLoaded.delete(KEY);
+                            }
                         }
-                        else {
-                            resouceIsDisposed = true;
-                            this.previouslyLoaded.delete(KEY);
+                        if (!resouceIsDisposed) {
+                            return res as T;
                         }
-                    }
-                    if (!resouceIsDisposed) {
-                        return res as T;
                     }
                 }
 
@@ -905,6 +981,28 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 this.previouslyLoaded.set(KEY, request);
                 slot.use(request);
                 const res = await request;
+
+                // Optimize cache entry: replace loading promise with lightweight reference.
+                // This releases closure variables captured during the loading function.
+                if (res != null) {
+                    if (Array.isArray(res)) {
+                        // For BufferGeometry[] (multi-primitive meshes), use a resolved promise.
+                        // WeakRef can't be used here because callers only extract individual elements
+                        // from the array, so the array object itself would be GC'd immediately.
+                        this.previouslyLoaded.set(KEY, Promise.resolve(res));
+                    } else {
+                        // For single resources (Texture or BufferGeometry), use WeakRef to allow
+                        // garbage collection when the resource is no longer referenced by the scene.
+                        // The FinalizationRegistry will auto-clean this entry when the resource is GC'd.
+                        this.previouslyLoaded.set(KEY, new WeakRef(res));
+                        NEEDLE_progressive._resourceRegistry.register(res, KEY);
+                    }
+                } else {
+                    // Failed load — replace with clean resolved promise to release loading closure.
+                    // Keeping the entry prevents retrying (existing behavior).
+                    this.previouslyLoaded.set(KEY, Promise.resolve(null));
+                }
+
                 return res as T;
             }
             else {

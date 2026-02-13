@@ -634,21 +634,68 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     /**
      * Dispose cached resources to free memory.
      * Call this when a model is removed from the scene to allow garbage collection of its LOD resources.
+     * Calls three.js `.dispose()` on cached Textures and BufferGeometries to free GPU memory.
      * @param guid Optional GUID to dispose resources for a specific model. If omitted, all cached resources are cleared.
      */
     static dispose(guid?: string): void {
         if (guid) {
             this.lodInfos.delete(guid);
-            this.lowresCache.delete(guid);
-            for (const [key] of this.previouslyLoaded) {
+
+            // Dispose lowres cache entries (original proxy resources)
+            const lowres = this.lowresCache.get(guid);
+            if (lowres) {
+                if ((lowres as Texture).isTexture) {
+                    (lowres as Texture).dispose();
+                } else if (Array.isArray(lowres)) {
+                    for (const geo of lowres) geo.dispose();
+                }
+                this.lowresCache.delete(guid);
+            }
+
+            // Dispose previously loaded LOD entries
+            for (const [key, entry] of this.previouslyLoaded) {
                 if (key.includes(guid)) {
+                    this._disposeCacheEntry(entry);
                     this.previouslyLoaded.delete(key);
                 }
             }
         } else {
             this.lodInfos.clear();
+
+            for (const [, entry] of this.lowresCache) {
+                if ((entry as Texture).isTexture) {
+                    (entry as Texture).dispose();
+                } else if (Array.isArray(entry)) {
+                    for (const geo of entry) geo.dispose();
+                }
+            }
             this.lowresCache.clear();
+
+            for (const [, entry] of this.previouslyLoaded) {
+                this._disposeCacheEntry(entry);
+            }
             this.previouslyLoaded.clear();
+        }
+    }
+
+    /** Dispose a single cache entry's three.js resource(s) to free GPU memory. */
+    private static _disposeCacheEntry(entry: LODCacheEntry): void {
+        if (entry instanceof WeakRef) {
+            // Single resource — deref and dispose if still alive
+            const resource = entry.deref();
+            resource?.dispose();
+        } else {
+            // Promise — may be in-flight or already resolved.
+            // Attach disposal to run after resolution.
+            entry.then(resource => {
+                if (resource) {
+                    if (Array.isArray(resource)) {
+                        for (const geo of resource) geo.dispose();
+                    } else {
+                        resource.dispose();
+                    }
+                }
+            }).catch(() => { /* ignore errors from failed loads */ });
         }
     }
 

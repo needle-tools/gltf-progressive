@@ -595,7 +595,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         const key = ext.guid;
         NEEDLE_progressive.assignLODInformation(url, tex, key, level, index);
         NEEDLE_progressive.lodInfos.set(key, ext);
-        NEEDLE_progressive.lowresCache.set(key, tex);
+        NEEDLE_progressive.lowresCache.set(key, new WeakRef(tex));
     };
 
     /**
@@ -615,10 +615,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
         NEEDLE_progressive.lodInfos.set(key, ext);
 
-        let existing = NEEDLE_progressive.lowresCache.get(key) as unknown as BufferGeometry[] | undefined;
-        if (existing) existing.push(mesh.geometry as BufferGeometry);
-        else existing = [mesh.geometry as BufferGeometry];
-        NEEDLE_progressive.lowresCache.set(key, existing);
+        const existingRef = NEEDLE_progressive.lowresCache.get(key) as WeakRef<BufferGeometry[]> | undefined;
+        let existing = existingRef?.deref();
+        if (existing) {
+            existing.push(mesh.geometry as BufferGeometry);
+        } else {
+            existing = [mesh.geometry as BufferGeometry];
+        }
+        NEEDLE_progressive.lowresCache.set(key, new WeakRef(existing));
 
         if (level > 0 && !getRaycastMesh(mesh)) {
             registerRaycastMesh(mesh, geometry);
@@ -642,12 +646,15 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             this.lodInfos.delete(guid);
 
             // Dispose lowres cache entries (original proxy resources)
-            const lowres = this.lowresCache.get(guid);
-            if (lowres) {
-                if ((lowres as Texture).isTexture) {
-                    (lowres as Texture).dispose();
-                } else if (Array.isArray(lowres)) {
-                    for (const geo of lowres) geo.dispose();
+            const lowresRef = this.lowresCache.get(guid);
+            if (lowresRef) {
+                const lowres = lowresRef.deref();
+                if (lowres) {
+                    if ((lowres as Texture).isTexture) {
+                        (lowres as Texture).dispose();
+                    } else if (Array.isArray(lowres)) {
+                        for (const geo of lowres) geo.dispose();
+                    }
                 }
                 this.lowresCache.delete(guid);
             }
@@ -662,11 +669,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         } else {
             this.lodInfos.clear();
 
-            for (const [, entry] of this.lowresCache) {
-                if ((entry as Texture).isTexture) {
-                    (entry as Texture).dispose();
-                } else if (Array.isArray(entry)) {
-                    for (const geo of entry) geo.dispose();
+            for (const [, entryRef] of this.lowresCache) {
+                const entry = entryRef.deref();
+                if (entry) {
+                    if ((entry as Texture).isTexture) {
+                        (entry as Texture).dispose();
+                    } else if (Array.isArray(entry)) {
+                        for (const geo of entry) geo.dispose();
+                    }
                 }
             }
             this.lowresCache.clear();
@@ -704,8 +714,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private static readonly lodInfos = new Map<string, NEEDLE_progressive_ext>();
     /** cache of already loaded mesh lods. Uses WeakRef for single resources to allow garbage collection when unused. */
     private static readonly previouslyLoaded: Map<string, LODCacheEntry> = new Map();
-    /** this contains the geometry/textures that were originally loaded */
-    private static readonly lowresCache: Map<string, Texture | BufferGeometry[]> = new Map();
+    /** this contains the geometry/textures that were originally loaded. Uses WeakRef to allow garbage collection when unused. */
+    private static readonly lowresCache: Map<string, WeakRef<Texture> | WeakRef<BufferGeometry[]>> = new Map();
 
     /**
      * FinalizationRegistry to automatically clean up `previouslyLoaded` cache entries
@@ -714,12 +724,15 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      */
     private static readonly _resourceRegistry = new FinalizationRegistry<string>((cacheKey: string) => {
         const entry = NEEDLE_progressive.previouslyLoaded.get(cacheKey);
+        console.debug(`[gltf-progressive] FinalizationRegistry cleanup: Resource GC'd for ${cacheKey}.`);
         // Only delete if the entry is still a WeakRef and the resource is gone
         if (entry instanceof WeakRef) {
-            if (!entry.deref()) {
+            const derefed = entry.deref();
+            if (!derefed) {
                 NEEDLE_progressive.previouslyLoaded.delete(cacheKey);
                 if (debug) console.log(`[gltf-progressive] Cache entry auto-cleaned (GC'd): ${cacheKey}`);
             }
+
         }
     });
 
@@ -770,8 +783,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     useLowRes = true;
                 }
                 if (useLowRes) {
-                    const lowres = this.lowresCache.get(LODKEY) as T;
-                    return lowres;
+                    const lowresRef = this.lowresCache.get(LODKEY);
+                    if (lowresRef) {
+                        const lowres = lowresRef.deref();
+                        if (lowres) return lowres as T;
+                        // Resource was GC'd, remove stale entry
+                        this.lowresCache.delete(LODKEY);
+                        if (debug) console.log(`[gltf-progressive] Lowres cache entry was GC'd: ${LODKEY}`);
+                    }
+                    // Fallback to current if lowres was GC'd
+                    return null;
                 }
             }
 

@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       id-token: write  # Required for OIDC authentication
-      contents: read   # Required to checkout code
+      contents: write   # Required to checkout code
     defaults:
       run:
         working-directory: .

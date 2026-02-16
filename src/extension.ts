@@ -660,10 +660,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
 
             // Dispose previously loaded LOD entries
-            for (const [key, entry] of this.previouslyLoaded) {
+            for (const [key, entry] of this.cache) {
                 if (key.includes(guid)) {
                     this._disposeCacheEntry(entry);
-                    this.previouslyLoaded.delete(key);
+                    this.cache.delete(key);
                 }
             }
         } else {
@@ -681,10 +681,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
             this.lowresCache.clear();
 
-            for (const [, entry] of this.previouslyLoaded) {
+            for (const [, entry] of this.cache) {
                 this._disposeCacheEntry(entry);
             }
-            this.previouslyLoaded.clear();
+            this.cache.clear();
         }
     }
 
@@ -713,7 +713,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     /** A map of key = asset uuid and value = LOD information */
     private static readonly lodInfos = new Map<string, NEEDLE_progressive_ext>();
     /** cache of already loaded mesh lods. Uses WeakRef for single resources to allow garbage collection when unused. */
-    private static readonly previouslyLoaded: Map<string, LODCacheEntry> = new Map();
+    private static readonly cache: Map<string, LODCacheEntry> = new Map();
     /** this contains the geometry/textures that were originally loaded. Uses WeakRef to allow garbage collection when unused. */
     private static readonly lowresCache: Map<string, WeakRef<Texture> | WeakRef<BufferGeometry[]>> = new Map();
 
@@ -723,13 +723,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * The held value is the cache key string used in `previouslyLoaded`.
      */
     private static readonly _resourceRegistry = new FinalizationRegistry<string>((cacheKey: string) => {
-        const entry = NEEDLE_progressive.previouslyLoaded.get(cacheKey);
-        console.debug(`[gltf-progressive] FinalizationRegistry cleanup: Resource GC'd for ${cacheKey}.`);
+        const entry = NEEDLE_progressive.cache.get(cacheKey);
+        if(debug) console.debug(`[gltf-progressive] Resource GC'd\n${cacheKey}`);
         // Only delete if the entry is still a WeakRef and the resource is gone
         if (entry instanceof WeakRef) {
             const derefed = entry.deref();
             if (!derefed) {
-                NEEDLE_progressive.previouslyLoaded.delete(cacheKey);
+                NEEDLE_progressive.cache.delete(cacheKey);
                 if (debug) console.log(`[gltf-progressive] Cache entry auto-cleaned (GC'd): ${cacheKey}`);
             }
 
@@ -823,7 +823,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const slot = await this.queue.slot(lod_url);
 
                 // check if the requested file is currently being loaded or was previously loaded
-                const existing = this.previouslyLoaded.get(KEY);
+                const existing = this.cache.get(KEY);
                 if (existing !== undefined) {
                     if (debugverbose) console.log(`LOD ${level} was already loading/loaded: ${KEY}`);
 
@@ -850,7 +850,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             }
                         }
                         // Resource was garbage collected or disposed — remove stale entry and re-load
-                        this.previouslyLoaded.delete(KEY);
+                        this.cache.delete(KEY);
                         if (debug) console.log(`[gltf-progressive] Re-loading GC'd/disposed resource: ${KEY}`);
                     }
                     else {
@@ -872,7 +872,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             // if it has been disposed we need to load it again
                             else {
                                 resouceIsDisposed = true;
-                                this.previouslyLoaded.delete(KEY);
+                                this.cache.delete(KEY);
                             }
                         }
                         else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
@@ -881,7 +881,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             }
                             else {
                                 resouceIsDisposed = true;
-                                this.previouslyLoaded.delete(KEY);
+                                this.cache.delete(KEY);
                             }
                         }
                         if (!resouceIsDisposed) {
@@ -1046,29 +1046,30 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     // we could not find a texture or mesh with the given guid
                     return resolve(null);
                 });
-                this.previouslyLoaded.set(KEY, request);
+                this.cache.set(KEY, request);
                 slot.use(request);
                 const res = await request;
 
                 // Optimize cache entry: replace loading promise with lightweight reference.
                 // This releases closure variables captured during the loading function.
                 if (res != null) {
-                    if (Array.isArray(res)) {
-                        // For BufferGeometry[] (multi-primitive meshes), use a resolved promise.
-                        // WeakRef can't be used here because callers only extract individual elements
-                        // from the array, so the array object itself would be GC'd immediately.
-                        this.previouslyLoaded.set(KEY, Promise.resolve(res));
-                    } else {
-                        // For single resources (Texture or BufferGeometry), use WeakRef to allow
-                        // garbage collection when the resource is no longer referenced by the scene.
+                    if (res instanceof Texture) {
+                        // For Texture resources, use WeakRef to allow garbage collection.
                         // The FinalizationRegistry will auto-clean this entry when the resource is GC'd.
-                        this.previouslyLoaded.set(KEY, new WeakRef(res));
+                        this.cache.set(KEY, new WeakRef(res));
                         NEEDLE_progressive._resourceRegistry.register(res, KEY);
+                    } else if (Array.isArray(res)) {
+                        // For BufferGeometry[] (multi-primitive meshes), use a resolved promise.
+                        // This keeps geometries in memory as they should not be GC'd (mesh LODs stay cached).
+                        this.cache.set(KEY, Promise.resolve(res));
+                    } else {
+                        // For single BufferGeometry, keep in memory (don't use WeakRef)
+                        this.cache.set(KEY, Promise.resolve(res));
                     }
                 } else {
                     // Failed load — replace with clean resolved promise to release loading closure.
                     // Keeping the entry prevents retrying (existing behavior).
-                    this.previouslyLoaded.set(KEY, Promise.resolve(null));
+                    this.cache.set(KEY, Promise.resolve(null));
                 }
 
                 return res as T;

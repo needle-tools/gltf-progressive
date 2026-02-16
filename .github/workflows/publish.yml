@@ -10,6 +10,9 @@ jobs:
   run-release-script:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      id-token: write  # Required for OIDC authentication
+      contents: read   # Required to checkout code
     defaults:
       run:
         working-directory: .
@@ -29,10 +32,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'  # Node 24+ includes npm 11.5+ with OIDC support
           cache: 'npm'
           cache-dependency-path: './package.json'
-          
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
         run: npm install
 
@@ -41,14 +45,14 @@ jobs:
                 
       - name: Publish to npm (stable branch)
         if: startsWith(github.ref_name, 'release/stable')
-        run: npx --yes needle-publish-helper@next publish "./dist" --webhook "${{ secrets.DISCORD_WEBHOOK }}" --access-token "${{ secrets.NPM_TOKEN }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
                 
       - name: Publish to npm (rc branch)
         if: startsWith(github.ref_name, 'release/rc')
-        run: npx --yes needle-publish-helper@next publish "./dist" --webhook "${{ secrets.DISCORD_WEBHOOK }}" --access-token "${{ secrets.NPM_TOKEN }}" --tag "rc" --version+tag --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "rc" --version+tag --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
 
       - name: Publish to npm (next and experimental branches)
         if: startsWith(github.ref_name, 'release/next')
-        run: npx --yes needle-publish-helper@next publish "./dist" --webhook "${{ secrets.DISCORD_WEBHOOK }}" --access-token "${{ secrets.NPM_TOKEN }}" --tag "${{ github.ref_name }}" --version+tag --version+hash --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "${{ github.ref_name }}" --version+tag --version+hash --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
 
 

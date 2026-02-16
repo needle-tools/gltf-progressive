@@ -2,7 +2,7 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { getParam, PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { determineTextureMemoryInBytes, getParam, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -15,6 +15,7 @@ import { NEEDLE_ext_progressive_mesh, NEEDLE_ext_progressive_texture, NEEDLE_pro
 
 const useWorker = getParam("gltf-progressive-worker");
 const reduceMipmaps = getParam("gltf-progressive-reduce-mipmaps");
+const debugGC = getParam("gltf-progressive-gc");
 
 /**
  * Cache entry type for previously loaded LOD resources.
@@ -425,29 +426,43 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             if (assignedLOD && assignedLOD?.level < level) {
                                 if (debug === "verbose")
                                     console.warn("Assigned texture level is already higher: ", assignedLOD.level, level, material, assigned, tex);
+
+                                // Dispose the newly loaded texture since we're not using it
+                                // (the assigned texture is higher quality, so we reject the new one)
+                                // Note: We dispose directly here (not via untrackTextureUsage) because this texture
+                                // was never tracked/used - it was rejected immediately upon loading
+                                if (tex && tex !== assigned) {
+                                    if (debug || debugGC) {
+                                        console.log(`[gltf-progressive] Disposing rejected lower-quality texture LOD ${level} (assigned is ${assignedLOD.level})`, tex.uuid);
+                                    }
+                                    tex.dispose();
+                                }
+
                                 return null;
                             }
                             // assigned.dispose();
                         }
-                        // Since we're switching LOD level for the texture based on distance we can avoid uploading all the mipmaps
-                        if (reduceMipmaps && tex.mipmaps) {
-                            const prevCount = tex.mipmaps.length;
-                            tex.mipmaps.length = Math.min(tex.mipmaps.length, 3);
-                            if (prevCount !== tex.mipmaps.length) {
-                                if (debug) console.debug(`Reduced mipmap count from ${prevCount} to ${tex.mipmaps.length} for ${tex.uuid}: ${tex.image?.width}x${tex.image?.height}.`);
+
+                        // Track reference count for new texture
+                        this.trackTextureUsage(tex);
+
+                        // Untrack the old texture (may dispose if ref count hits 0)
+                        // This prevents accumulation of GPU VRAM while waiting for garbage collection
+                        if (assigned && assigned !== tex) {
+                            const wasDisposed = this.untrackTextureUsage(assigned);
+                            if (wasDisposed && (debug || debugGC)) {
+                                const assignedLOD = this.getAssignedLODInformation(assigned as any);
+                                console.log(`[gltf-progressive] Disposed old texture LOD ${assignedLOD?.level ?? '?'} → ${level} for ${material.name || material.type}.${slot}`, assigned.uuid);
                             }
                         }
+
                         material[slot] = tex;
                     }
 
-                    // check if the old texture is still used by other objects
-                    // if not we dispose it...
-                    // this could also be handled elsewhere and not be done immediately
-                    // const users = getResourceUserCount(current);
-                    // if (!users) {
-                    //     if (debug) console.log("Progressive: Dispose texture", current.name, current.source.data, current.uuid);
-                    //     current?.dispose();
-                    // }
+                    // Note: We use reference counting above to track texture usage across multiple materials.
+                    // When the reference count hits zero, GPU memory (VRAM) is freed immediately via gl.deleteTexture(),
+                    // not waiting for JavaScript garbage collection which may take seconds/minutes.
+                    // This handles cases where the same texture is shared across multiple materials/objects.
                 }
 
                 // this.onProgressiveLoadEnd(info);
@@ -639,6 +654,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * Dispose cached resources to free memory.
      * Call this when a model is removed from the scene to allow garbage collection of its LOD resources.
      * Calls three.js `.dispose()` on cached Textures and BufferGeometries to free GPU memory.
+     * Also clears reference counts for disposed textures.
      * @param guid Optional GUID to dispose resources for a specific model. If omitted, all cached resources are cleared.
      */
     static dispose(guid?: string): void {
@@ -651,7 +667,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const lowres = lowresRef.deref();
                 if (lowres) {
                     if ((lowres as Texture).isTexture) {
-                        (lowres as Texture).dispose();
+                        const tex = lowres as Texture;
+                        this.textureRefCounts.delete(tex.uuid); // Clear ref count
+                        tex.dispose();
                     } else if (Array.isArray(lowres)) {
                         for (const geo of lowres) geo.dispose();
                     }
@@ -673,7 +691,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const entry = entryRef.deref();
                 if (entry) {
                     if ((entry as Texture).isTexture) {
-                        (entry as Texture).dispose();
+                        const tex = entry as Texture;
+                        this.textureRefCounts.delete(tex.uuid); // Clear ref count
+                        tex.dispose();
                     } else if (Array.isArray(entry)) {
                         for (const geo of entry) geo.dispose();
                     }
@@ -685,6 +705,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 this._disposeCacheEntry(entry);
             }
             this.cache.clear();
+
+            // Clear all texture reference counts when disposing everything
+            this.textureRefCounts.clear();
         }
     }
 
@@ -693,7 +716,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (entry instanceof WeakRef) {
             // Single resource — deref and dispose if still alive
             const resource = entry.deref();
-            resource?.dispose();
+            if (resource) {
+                // Clear ref count for textures
+                if ((resource as Texture).isTexture) {
+                    this.textureRefCounts.delete((resource as Texture).uuid);
+                }
+                resource.dispose();
+            }
         } else {
             // Promise — may be in-flight or already resolved.
             // Attach disposal to run after resolution.
@@ -702,6 +731,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (Array.isArray(resource)) {
                         for (const geo of resource) geo.dispose();
                     } else {
+                        // Clear ref count for textures
+                        if ((resource as Texture).isTexture) {
+                            this.textureRefCounts.delete((resource as Texture).uuid);
+                        }
                         resource.dispose();
                     }
                 }
@@ -716,6 +749,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private static readonly cache: Map<string, LODCacheEntry> = new Map();
     /** this contains the geometry/textures that were originally loaded. Uses WeakRef to allow garbage collection when unused. */
     private static readonly lowresCache: Map<string, WeakRef<Texture> | WeakRef<BufferGeometry[]>> = new Map();
+    /** Reference counting for textures to track usage across multiple materials/objects */
+    private static readonly textureRefCounts = new Map<string, number>();
 
     /**
      * FinalizationRegistry to automatically clean up `previouslyLoaded` cache entries
@@ -724,17 +759,75 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      */
     private static readonly _resourceRegistry = new FinalizationRegistry<string>((cacheKey: string) => {
         const entry = NEEDLE_progressive.cache.get(cacheKey);
-        if(debug) console.debug(`[gltf-progressive] Resource GC'd\n${cacheKey}`);
+        if (debug || debugGC) console.debug(`[gltf-progressive] Memory: Resource GC'd\n${cacheKey}`);
         // Only delete if the entry is still a WeakRef and the resource is gone
         if (entry instanceof WeakRef) {
             const derefed = entry.deref();
             if (!derefed) {
                 NEEDLE_progressive.cache.delete(cacheKey);
-                if (debug) console.log(`[gltf-progressive] Cache entry auto-cleaned (GC'd): ${cacheKey}`);
+                if (debug || debugGC) console.log(`[gltf-progressive] ↪ Cache entry deleted (GC)`);
             }
 
         }
     });
+
+    /**
+     * Track texture usage by incrementing reference count
+     */
+    private static trackTextureUsage(texture: Texture): void {
+        const uuid = texture.uuid;
+        const count = this.textureRefCounts.get(uuid) || 0;
+        this.textureRefCounts.set(uuid, count + 1);
+        if (debug === "verbose") {
+            console.log(`[gltf-progressive] Track texture ${uuid}, refCount: ${count} → ${count + 1}`);
+        }
+    }
+
+    /**
+     * Untrack texture usage by decrementing reference count.
+     * Automatically disposes the texture when reference count reaches zero.
+     * @returns true if the texture was disposed, false otherwise
+     */
+    private static untrackTextureUsage(texture: Texture): boolean {
+        const uuid = texture.uuid;
+        const count = this.textureRefCounts.get(uuid);
+        if (!count) {
+            // Texture wasn't tracked, dispose immediately (safe fallback)
+            if (debug === "verbose" || debugGC) {
+                logDebugInfo(`[gltf-progressive] Memory: Untrack untracked texture (dispose immediately)`, 0);
+            }
+            texture.dispose();
+            return true;
+        }
+
+        const newCount = count - 1;
+        if (newCount <= 0) {
+            this.textureRefCounts.delete(uuid);
+            if (debug || debugGC) {
+                logDebugInfo(`[gltf-progressive] Memory: Dispose texture`, newCount);
+            }
+            texture.dispose();
+            return true;
+        } else {
+            this.textureRefCounts.set(uuid, newCount);
+            if (debug === "verbose") {
+                logDebugInfo(`[gltf-progressive] Memory: Untrack texture`, newCount);
+            }
+            return false;
+        }
+
+        function logDebugInfo(prefix: string, newCount: number) {
+            let width = texture.image?.width || texture.source?.data?.width || 0;
+            let height = texture.image?.height || texture.source?.data?.height || 0;
+            const textureSize = width && height ? `${width}x${height}` : "N/A";
+            let memorySize = "N/A";
+            if (width && height) {
+                memorySize = `~${(determineTextureMemoryInBytes(texture) / (1024 * 1024)).toFixed(2)} MB`;
+            }
+
+            console.log(`${prefix} — ${texture.name} ${textureSize} (${memorySize}), refCount: ${count} → ${newCount}\n${uuid}`);
+        }
+    }
 
     private static readonly workers: Array<GLTFLoaderWorker> = [];
     private static _workersIndex = 0;

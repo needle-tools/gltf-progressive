@@ -1,3 +1,4 @@
+import { Texture } from "three";
 
 const debug = getParam("debugprogressive");
 
@@ -122,4 +123,46 @@ export class PromiseQueue<T = any> {
         }
     }
 
+}
+
+
+
+
+export function determineTextureMemoryInBytes(texture: Texture): number {
+    const width = texture.image?.width ?? 0;
+    const height = texture.image?.height ?? 0;
+    const depth = texture.image?.depth ?? 1;
+    const mipLevels = Math.floor(Math.log2(Math.max(width, height, depth))) + 1;
+    const bytesPerPixel = getBytesPerPixel(texture);
+    const totalBytes = (width * height * depth * bytesPerPixel * (1 - Math.pow(0.25, mipLevels))) / (1 - 0.25);
+    return totalBytes;
+}
+
+function getBytesPerPixel(texture: Texture): number {
+    // Determine channel count from format
+    let channels = 4; // Default RGBA
+    const format = texture.format;
+    if (format === 1024) channels = 1; // RedFormat
+    else if (format === 1025) channels = 1; // RedIntegerFormat
+    else if (format === 1026) channels = 2; // RGFormat
+    else if (format === 1027) channels = 2; // RGIntegerFormat
+    else if (format === 1022) channels = 3; // RGBFormat
+    else if (format === 1029) channels = 3; // RGBIntegerFormat
+    else if (format === 1023) channels = 4; // RGBAFormat
+    else if (format === 1033) channels = 4; // RGBAIntegerFormat
+
+    // Determine bytes per channel from type
+    let bytesPerChannel = 1; // UnsignedByteType default
+    const type = texture.type;
+    if (type === 1009) bytesPerChannel = 1; // UnsignedByteType
+    else if (type === 1010) bytesPerChannel = 1; // ByteType
+    else if (type === 1011) bytesPerChannel = 2; // ShortType
+    else if (type === 1012) bytesPerChannel = 2; // UnsignedShortType
+    else if (type === 1013) bytesPerChannel = 4; // IntType
+    else if (type === 1014) bytesPerChannel = 4; // UnsignedIntType
+    else if (type === 1015) bytesPerChannel = 4; // FloatType
+    else if (type === 1016) bytesPerChannel = 2; // HalfFloatType
+
+    const bytesPerPixel = channels * bytesPerChannel;
+    return bytesPerPixel;
 }

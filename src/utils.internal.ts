@@ -67,6 +67,9 @@ export function isDevelopmentServer() {
 
 
 
+
+// #region Promise Queue
+
 export type SlotReturnValue<T = any> = { use?: ((promise: Promise<T>) => void) };
 
 
@@ -127,6 +130,7 @@ export class PromiseQueue<T = any> {
 
 
 
+// #region Texture Memory
 
 export function determineTextureMemoryInBytes(texture: Texture): number {
     const width = texture.image?.width ?? 0;
@@ -165,4 +169,52 @@ function getBytesPerPixel(texture: Texture): number {
 
     const bytesPerPixel = channels * bytesPerChannel;
     return bytesPerPixel;
+}
+
+
+// #region GPU
+
+let rendererInfo: undefined | null | {
+    vendor?: string,
+    renderer?: string,
+    estimatedMemory: number
+};
+
+/**
+ * Detect the GPU memory of the current device. This is a very rough estimate based on the renderer information, and may not be accurate. It returns the estimated memory in MB, or `undefined` if it cannot be detected.
+ */
+export function detectGPUMemory(): number | undefined {
+    if (rendererInfo !== undefined) {
+        return rendererInfo?.estimatedMemory;
+    }
+
+    const canvas = document.createElement('canvas');
+    const powerPreference = "high-performance";
+    const gl = canvas.getContext('webgl', { powerPreference }) || canvas.getContext('experimental-webgl', { powerPreference });
+    if (!gl) {
+        return undefined;
+    }
+    if ("getExtension" in gl) {
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+            const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            // Estimate memory based on renderer information (this is a very rough estimate)
+            let estimatedMemory = 512;
+            if (/NVIDIA/i.test(renderer)) {
+                estimatedMemory = 2048;
+            } else if (/AMD/i.test(renderer)) {
+                estimatedMemory = 1024;
+            } else if (/Intel/i.test(renderer)) {
+                estimatedMemory = 512;
+            }
+            rendererInfo = { vendor, renderer, estimatedMemory };
+            return estimatedMemory;
+        }
+    }
+    else {
+        rendererInfo = null;
+    }
+
+    return undefined;
 }

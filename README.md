@@ -155,6 +155,15 @@ These settings are available on the LOD manager instance:
 - `manual` - When set to true the LODsManager will not update the LODs. This can be used to manually update the LODs using the `update` method. Otherwise the LODs will be updated automatically when the renderer renders the scene.
 - `overrideLodLevel` - Can be set to any number between 0 and 6 to override the lod level to be loaded. To disable the override again set it to `undefined`.
 
+### Concurrent loading limit
+`maxConcurrentLoadingTasks` controls how many LOD resources (meshes and textures) can be loaded simultaneously. When the limit is reached, additional requests are queued and processed as previous ones finish. Default: `50`.
+
+```ts
+import { NEEDLE_progressive } from "@needle-tools/gltf-progressive";
+
+NEEDLE_progressive.maxConcurrentLoadingTasks = 20;
+```
+
 ### Automatically use low-poly meshes for raycasting
 Simply call `useRaycastMeshes(true)` to enable faster raycasting when using the the THREE.Raycaster. This can again be disabled by calling `useRaycastMeshes(false)`. Calling this method is only necessary once to enable it.  
 

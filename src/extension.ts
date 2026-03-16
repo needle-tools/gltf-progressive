@@ -393,15 +393,15 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return Promise.resolve(null);
     }
 
-    
+
     /**
      * Set the maximum number of concurrent loading tasks for LOD resources. This limits how many LOD resources (meshes or textures) can be loaded at the same time to prevent overloading the network or GPU. If the limit is reached, additional loading requests will be queued and processed as previous ones finish.
      * @default 50
      */
-    set maxConcurrentLoadingTasks(value: number) {
+    static set maxConcurrentLoadingTasks(value: number) {
         NEEDLE_progressive.queue.maxConcurrent = value;
     }
-    get maxConcurrentLoadingTasks(): number {
+    static get maxConcurrentLoadingTasks(): number {
         return NEEDLE_progressive.queue.maxConcurrent;
     }
 

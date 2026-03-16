@@ -393,6 +393,17 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return Promise.resolve(null);
     }
 
+    
+    /**
+     * Set the maximum number of concurrent loading tasks for LOD resources. This limits how many LOD resources (meshes or textures) can be loaded at the same time to prevent overloading the network or GPU. If the limit is reached, additional loading requests will be queued and processed as previous ones finish.
+     * @default 50
+     */
+    set maxConcurrentLoadingTasks(value: number) {
+        NEEDLE_progressive.queue.maxConcurrent = value;
+    }
+    get maxConcurrentLoadingTasks(): number {
+        return NEEDLE_progressive.queue.maxConcurrent;
+    }
 
 
     // #region INTERNAL
@@ -1188,8 +1199,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    private static maxConcurrent = 50;
-    private static queue: PromiseQueue = new PromiseQueue(NEEDLE_progressive.maxConcurrent, { debug: debug != false });
+    private static queue: PromiseQueue = new PromiseQueue(50, { debug: debug != false });
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number): void {
         if (!res) return;

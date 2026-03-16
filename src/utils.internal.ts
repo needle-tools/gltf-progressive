@@ -83,7 +83,7 @@ export class PromiseQueue<T = any> {
     private readonly _queue: Array<{ key: string, resolve: (value: SlotReturnValue<T>) => void }> = [];
     public debug: boolean = false;
 
-    constructor(public readonly maxConcurrent: number = 100, opts: { debug?: boolean } = {}) {
+    constructor(public maxConcurrent: number, opts: { debug?: boolean } = {}) {
         this.debug = opts.debug ?? false;
         window.requestAnimationFrame(this.tick)
     }

@@ -2,7 +2,7 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { determineTextureMemoryInBytes, getParam, PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { determineTextureMemoryInBytes, getParam, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -396,7 +396,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
     /**
      * Set the maximum number of concurrent loading tasks for LOD resources. This limits how many LOD resources (meshes or textures) can be loaded at the same time to prevent overloading the network or GPU. If the limit is reached, additional loading requests will be queued and processed as previous ones finish.
-     * @default 50
+     * @default 50 on desktop, 20 on mobile devices
      */
     static set maxConcurrentLoadingTasks(value: number) {
         NEEDLE_progressive.queue.maxConcurrent = value;
@@ -1199,7 +1199,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    private static queue: PromiseQueue = new PromiseQueue(50, { debug: debug != false });
+    private static queue: PromiseQueue = new PromiseQueue(isMobileDevice() ? 20 : 50, { debug: debug != false });
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number): void {
         if (!res) return;

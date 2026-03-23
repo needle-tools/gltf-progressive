@@ -672,6 +672,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (guid) {
             this.lodInfos.delete(guid);
 
+            // Abort any in-flight LOD load for this guid
+            const abort = this._inFlightAborts.get(guid);
+            if (abort) {
+                abort.abort();
+                this._inFlightAborts.delete(guid);
+            }
+
             // Dispose lowres cache entries (original proxy resources)
             const lowresRef = this.lowresCache.get(guid);
             if (lowresRef) {
@@ -697,6 +704,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
         } else {
             this.lodInfos.clear();
+
+            // Abort all in-flight LOD loads
+            for (const [, abort] of this._inFlightAborts) {
+                abort.abort();
+            }
+            this._inFlightAborts.clear();
 
             for (const [, entryRef] of this.lowresCache) {
                 const entry = entryRef.deref();
@@ -762,6 +775,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private static readonly lowresCache: Map<string, WeakRef<Texture> | WeakRef<BufferGeometry[]>> = new Map();
     /** Reference counting for textures to track usage across multiple materials/objects */
     private static readonly textureRefCounts = new Map<string, number>();
+
+    /** AbortControllers for in-flight LOD loads, keyed by LODKEY (asset GUID).
+     * When a new LOD level is requested for the same asset, the previous load is aborted. */
+    private static readonly _inFlightAborts = new Map<string, AbortController>();
 
     /**
      * FinalizationRegistry to automatically clean up `previouslyLoaded` cache entries
@@ -999,6 +1016,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (debug) console.log(`LOD ${level} was aborted: ${lod_url}`);
                     return null; // the request was aborted, we don't load it again
                 }
+
+                // Abort any previous in-flight load for this asset
+                const prevAbort = this._inFlightAborts.get(LODKEY);
+                if (prevAbort) {
+                    prevAbort.abort();
+                    if (debug) console.log(`[gltf-progressive] Aborted previous in-flight LOD for ${LODKEY}`);
+                }
+                const abortController = new AbortController();
+                this._inFlightAborts.set(LODKEY, abortController);
+
                 const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
 
@@ -1007,6 +1034,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (useWorker) {
                         const worker = await getWorker({});
                         const res = await worker.load(lod_url);
+
+                        if (abortController.signal.aborted) {
+                            return resolve(null);
+                        }
 
                         if (res.textures.length > 0) {
                             // const textures = new Array<Texture>();
@@ -1058,9 +1089,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         }
                     }
                     const gltf = await loader.loadAsync(url).catch(err => {
+                        if (abortController.signal.aborted) return undefined;
                         console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
                         return resolve(null);
                     });
+                    if (abortController.signal.aborted) {
+                        return resolve(null);
+                    }
                     if (!gltf) {
                         return resolve(null);
                     }
@@ -1153,6 +1188,11 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 this.cache.set(KEY, request);
                 slot.use(request);
                 const res = await request;
+
+                // Clean up abort controller for this asset
+                if (this._inFlightAborts.get(LODKEY) === abortController) {
+                    this._inFlightAborts.delete(LODKEY);
+                }
 
                 // Optimize cache entry: replace loading promise with lightweight reference.
                 // This releases closure variables captured during the loading function.

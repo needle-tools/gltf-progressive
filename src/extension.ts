@@ -262,7 +262,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
             // const info = this.onProgressiveLoadStart(context, source, mesh, null);
             mesh["LOD:requested level"] = level;
-            return NEEDLE_progressive.getOrLoadLOD<BufferGeometry>(currentGeometry, level).then(geo => {
+            return NEEDLE_progressive.getOrLoadLOD<BufferGeometry>(currentGeometry, level, mesh).then(geo => {
                 if (Array.isArray(geo)) {
                     const index = lodinfo.index || 0;
                     geo = geo[index];
@@ -417,7 +417,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return Promise.resolve(current);
         }
 
-        return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
+        return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level, current).then(tex => {
 
             // this can currently not happen
             if (Array.isArray(tex)) {
@@ -672,12 +672,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         if (guid) {
             this.lodInfos.delete(guid);
 
-            // Abort any in-flight LOD load for this guid
-            const abort = this._inFlightAborts.get(guid);
-            if (abort) {
-                abort.abort();
-                this._inFlightAborts.delete(guid);
-            }
+            // Note: in-flight abort controllers are keyed by owner (mesh/texture) in a WeakMap,
+            // so they are automatically cleaned up when the owner is garbage collected.
 
             // Dispose lowres cache entries (original proxy resources)
             const lowresRef = this.lowresCache.get(guid);
@@ -705,11 +701,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         } else {
             this.lodInfos.clear();
 
-            // Abort all in-flight LOD loads
-            for (const [, abort] of this._inFlightAborts) {
-                abort.abort();
-            }
-            this._inFlightAborts.clear();
+            // Note: in-flight abort controllers are in a WeakMap keyed by owner,
+            // they will be cleaned up automatically when owners are garbage collected.
 
             for (const [, entryRef] of this.lowresCache) {
                 const entry = entryRef.deref();
@@ -776,9 +769,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     /** Reference counting for textures to track usage across multiple materials/objects */
     private static readonly textureRefCounts = new Map<string, number>();
 
-    /** AbortControllers for in-flight LOD loads, keyed by LODKEY (asset GUID).
-     * When a new LOD level is requested for the same asset, the previous load is aborted. */
-    private static readonly _inFlightAborts = new Map<string, AbortController>();
+    /** AbortControllers for in-flight LOD loads, keyed by the owner object (mesh or texture).
+     * When a new LOD level is requested for the same owner, the previous load is aborted. */
+    private static readonly _inFlightAborts = new WeakMap<object, AbortController>();
 
     /**
      * FinalizationRegistry to automatically clean up `previouslyLoaded` cache entries
@@ -860,7 +853,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private static readonly workers: Array<GLTFLoaderWorker> = [];
     private static _workersIndex = 0;
 
-    private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number): Promise<T | null> {
+    private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number, owner?: object): Promise<T | null> {
 
         const debugverbose = debug == "verbose";
 
@@ -1017,14 +1010,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     return null; // the request was aborted, we don't load it again
                 }
 
-                // Abort any previous in-flight load for this asset
-                const prevAbort = this._inFlightAborts.get(LODKEY);
-                if (prevAbort) {
-                    prevAbort.abort();
-                    if (debug) console.log(`[gltf-progressive] Aborted previous in-flight LOD for ${LODKEY}`);
-                }
+                // Abort any previous in-flight load for this owner (mesh or texture instance)
                 const abortController = new AbortController();
-                this._inFlightAborts.set(LODKEY, abortController);
+                if (owner) {
+                    const prevAbort = this._inFlightAborts.get(owner);
+                    if (prevAbort) {
+                        prevAbort.abort();
+                        if (debug) console.log(`[gltf-progressive] Aborted previous in-flight LOD for owner`);
+                    }
+                    this._inFlightAborts.set(owner, abortController);
+                }
 
                 const ext = lodInfo;
                 const request = new Promise<null | Texture | BufferGeometry | BufferGeometry[]>(async (resolve, _) => {
@@ -1189,9 +1184,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 slot.use(request);
                 const res = await request;
 
-                // Clean up abort controller for this asset
-                if (this._inFlightAborts.get(LODKEY) === abortController) {
-                    this._inFlightAborts.delete(LODKEY);
+                // Clean up abort controller for this owner
+                if (owner && this._inFlightAborts.get(owner) === abortController) {
+                    this._inFlightAborts.delete(owner);
                 }
 
                 // Optimize cache entry: replace loading promise with lightweight reference.

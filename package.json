@@ -70,7 +70,7 @@
   },
   "devDependencies": {
     "@stylistic/eslint-plugin-ts": "^1.5.4",
-    "@types/three": "0.183.0",
+    "@types/three": "0.183.1",
     "@typescript-eslint/eslint-plugin": "^6.2.0",
     "@typescript-eslint/parser": "^6.2.0",
     "eslint": "^8.56.0",

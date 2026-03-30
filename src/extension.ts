@@ -2,7 +2,7 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { determineTextureMemoryInBytes, getParam, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { determineTextureMemoryInBytes, getParam, getSourceData, hasPixelData, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -641,8 +641,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return;
         }
         if (debug) {
-            const width = tex.image?.width || tex.source?.data?.width || 0;
-            const height = tex.image?.height || tex.source?.data?.height || 0;
+            const srcData = getSourceData(tex);
+            const width = tex.image?.width || srcData?.width || 0;
+            const height = tex.image?.height || srcData?.height || 0;
             console.log(`> gltf-progressive: register texture[${index}] "${tex.name || tex.uuid}", Current: ${width}x${height}, Max: ${ext.lods[0]?.width}x${ext.lods[0]?.height}, uuid: ${tex.uuid}`, ext, tex);
         }
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
@@ -869,8 +870,9 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         }
 
         function logDebugInfo(prefix: string, newCount: number) {
-            let width = texture.image?.width || texture.source?.data?.width || 0;
-            let height = texture.image?.height || texture.source?.data?.height || 0;
+            const srcData = getSourceData(texture);
+            let width = texture.image?.width || srcData?.width || 0;
+            let height = texture.image?.height || srcData?.height || 0;
             const textureSize = width && height ? `${width}x${height}` : "N/A";
             let memorySize = "N/A";
             if (width && height) {
@@ -979,7 +981,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             let res: Texture | BufferGeometry = derefed;
                             let resourceIsDisposed = false;
                             if (res instanceof Texture && current instanceof Texture) {
-                                if (res.image?.data || res.source?.data) {
+                                if (hasPixelData(res.image) || getSourceData(res)) {
                                     res = this.copySettings(current, res);
                                 } else {
                                     resourceIsDisposed = true;
@@ -1011,7 +1013,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         }
                         else if (res instanceof Texture && current instanceof Texture) {
                             // check if the texture has been disposed or not
-                            if (res.image?.data || res.source?.data) {
+                            if (hasPixelData(res.image) || getSourceData(res)) {
                                 res = this.copySettings(current, res);
                             }
                             // if it has been disposed we need to load it again

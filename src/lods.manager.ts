@@ -1,3 +1,4 @@
+// @ts-ignore Timer exists at runtime in r183 but @types/three doesn't export it from main entry yet
 import { Box3, BufferGeometry, Camera, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Timer, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"

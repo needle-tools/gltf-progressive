@@ -1,7 +1,7 @@
-import { Box3, BufferAttribute, BufferGeometry, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, Matrix3, PixelFormat, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferAttribute, BufferGeometry, type ColorSpace, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, Matrix3, PixelFormat, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { createLoaders, GET_LOADER_LOCATION_CONFIG } from "../loaders.js";
 import type { KTX2LoaderWorkerConfig } from "three/examples/jsm/loaders/KTX2Loader.js";
-import { isMobileDevice } from "../utils.internal.js";
+import { getSourceData, isMobileDevice } from "../utils.internal.js";
 import { debug } from "../lods.debug.js";
 
 type GLTFLoaderWorkerOptions = {
@@ -227,8 +227,9 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
 
         if ((texture as CompressedTexture).isCompressedTexture) {
             const mipmaps = texture.mipmaps as CompressedTextureMipmap[];
-            const width = texture.image?.width || texture.source?.data?.width || -1;
-            const height = texture.image?.height || texture.source?.data?.height || -1;
+            const srcData = getSourceData(texture);
+            const width = texture.image?.width || srcData?.width || -1;
+            const height = texture.image?.height || srcData?.height || -1;
             newTexture = new CompressedTexture(
                 mipmaps,
                 width,
@@ -241,7 +242,7 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
                 texture.magFilter,
                 texture.minFilter,
                 texture.anisotropy,
-                texture.colorSpace
+                texture.colorSpace as ColorSpace
             );
         }
         else {
@@ -255,7 +256,7 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
                 texture.format as PixelFormat,
                 texture.type,
                 texture.anisotropy,
-                texture.colorSpace
+                texture.colorSpace as ColorSpace
             );
             newTexture.mipmaps = texture.mipmaps;
             newTexture.channel = texture.channel;

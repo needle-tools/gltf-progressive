@@ -1,4 +1,29 @@
-import { Texture } from "three";
+import { RedFormat, RedIntegerFormat, RGFormat, RGIntegerFormat, RGBFormat, RGBAFormat, RGBAIntegerFormat, Texture } from "three";
+
+/** Represents the possible shapes of texture image/source data in three.js.
+ * Source.data is typed as `{}` in r183 but at runtime can be ImageBitmap, HTMLImageElement, etc. */
+export type TextureImageData = {
+    width?: number;
+    height?: number;
+    depth?: number;
+    data?: ArrayBufferView | null;
+};
+
+/** Check if a value has image-like dimensions (width/height) */
+export function hasImageDimensions(value: unknown): value is { width: number; height: number } {
+    return value != null && typeof (value as any).width === 'number' && typeof (value as any).height === 'number';
+}
+
+/** Check if a value has pixel data (e.g. typed array from a DataTexture) */
+export function hasPixelData(value: unknown): value is { data: ArrayBufferView } {
+    return value != null && (value as any).data != null;
+}
+
+/** Get the source data of a texture, typed for dimension/data access */
+export function getSourceData(tex: Texture): TextureImageData | null {
+    const data = tex.source?.data;
+    return data != null && typeof data === 'object' ? data as TextureImageData : null;
+}
 
 const debug = getParam("debugprogressive");
 
@@ -133,9 +158,10 @@ export class PromiseQueue<T = any> {
 // #region Texture Memory
 
 export function determineTextureMemoryInBytes(texture: Texture): number {
-    const width = texture.image?.width ?? 0;
-    const height = texture.image?.height ?? 0;
-    const depth = texture.image?.depth ?? 1;
+    const img = texture.image as TextureImageData | null;
+    const width = img?.width ?? 0;
+    const height = img?.height ?? 0;
+    const depth = img?.depth ?? 1;
     const mipLevels = Math.floor(Math.log2(Math.max(width, height, depth))) + 1;
     const bytesPerPixel = getBytesPerPixel(texture);
     const totalBytes = (width * height * depth * bytesPerPixel * (1 - Math.pow(0.25, mipLevels))) / (1 - 0.25);
@@ -145,15 +171,15 @@ export function determineTextureMemoryInBytes(texture: Texture): number {
 function getBytesPerPixel(texture: Texture): number {
     // Determine channel count from format
     let channels = 4; // Default RGBA
-    const format = texture.format;
-    if (format === 1024) channels = 1; // RedFormat
-    else if (format === 1025) channels = 1; // RedIntegerFormat
-    else if (format === 1026) channels = 2; // RGFormat
-    else if (format === 1027) channels = 2; // RGIntegerFormat
-    else if (format === 1022) channels = 3; // RGBFormat
-    else if (format === 1029) channels = 3; // RGBIntegerFormat
-    else if (format === 1023) channels = 4; // RGBAFormat
-    else if (format === 1033) channels = 4; // RGBAIntegerFormat
+    const format = texture.format as number;
+    if (format === RedFormat) channels = 1;
+    else if (format === RedIntegerFormat) channels = 1;
+    else if (format === RGFormat) channels = 2;
+    else if (format === RGIntegerFormat) channels = 2;
+    else if (format === RGBFormat) channels = 3;
+    else if (format === 1029) channels = 3; // RGBIntegerFormat (not exported in r183)
+    else if (format === RGBAFormat) channels = 4;
+    else if (format === RGBAIntegerFormat) channels = 4;
 
     // Determine bytes per channel from type
     let bytesPerChannel = 1; // UnsignedByteType default

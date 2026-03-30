@@ -25,6 +25,23 @@ export function getSourceData(tex: Texture): TextureImageData | null {
     return data != null && typeof data === 'object' ? data as TextureImageData : null;
 }
 
+/** Get the image of a texture, typed for dimension/data access.
+ * In r183, Texture.image is typed as `{}` but at runtime is an ImageBitmap, HTMLImageElement, etc. */
+export function getTextureImage(tex: Texture): TextureImageData | null {
+    const img = tex.image;
+    return img != null && typeof img === 'object' ? img as TextureImageData : null;
+}
+
+/** Get width/height of a texture from image or source data */
+export function getTextureDimensions(tex: Texture): { width: number; height: number } {
+    const img = getTextureImage(tex);
+    const src = getSourceData(tex);
+    return {
+        width: img?.width || src?.width || 0,
+        height: img?.height || src?.height || 0,
+    };
+}
+
 const debug = getParam("debugprogressive");
 
 export function isDebugMode() {

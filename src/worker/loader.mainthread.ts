@@ -1,7 +1,7 @@
 import { Box3, BufferAttribute, BufferGeometry, type ColorSpace, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, Matrix3, PixelFormat, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { createLoaders, GET_LOADER_LOCATION_CONFIG } from "../loaders.js";
 import type { KTX2LoaderWorkerConfig } from "three/examples/jsm/loaders/KTX2Loader.js";
-import { getSourceData, isMobileDevice } from "../utils.internal.js";
+import { getSourceData, getTextureDimensions, isMobileDevice } from "../utils.internal.js";
 import { debug } from "../lods.debug.js";
 
 type GLTFLoaderWorkerOptions = {
@@ -227,9 +227,7 @@ function processReceivedData(data: WorkerLoadResult): WorkerLoadResult {
 
         if ((texture as CompressedTexture).isCompressedTexture) {
             const mipmaps = texture.mipmaps as CompressedTextureMipmap[];
-            const srcData = getSourceData(texture);
-            const width = texture.image?.width || srcData?.width || -1;
-            const height = texture.image?.height || srcData?.height || -1;
+            const { width, height } = getTextureDimensions(texture);
             newTexture = new CompressedTexture(
                 mipmaps,
                 width,

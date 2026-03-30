@@ -6,6 +6,7 @@ on:
       - 'release/next'
       - 'release/rc'
       - 'release/stable'
+      - 'release/canary'
 
 jobs:
   run-release-script:
@@ -55,6 +56,11 @@ jobs:
       - name: Publish to npm (stable branch)
         if: startsWith(github.ref_name, 'release/stable')
         run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+      
+      # Canary; needs manual version bump
+      - name: Publish to npm (canary branch)
+        if: startsWith(github.ref_name, 'release/canary')
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "canary" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
                 
 
 

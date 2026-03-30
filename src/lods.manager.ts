@@ -1,4 +1,4 @@
-import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferGeometry, Camera, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Timer, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.js"
@@ -210,7 +210,7 @@ export class LODsManager {
 
     #originalRender?: (scene: Scene, camera: Camera) => void;
 
-    readonly #clock: Clock = new Clock();
+    readonly #clock: Timer = new Timer();
     #frame: number = 0;
     #delta: number = 0;
     #time: number = 0;
@@ -236,6 +236,7 @@ export class LODsManager {
             if (renderTarget == null || ("isXRRenderTarget" in renderTarget && renderTarget.isXRRenderTarget)) {
                 stack = 0;
                 self.#frame += 1;
+                self.#clock.update();
                 self.#delta = self.#clock.getDelta();
                 self.#time += self.#delta;
                 self._fpsBuffer.shift();

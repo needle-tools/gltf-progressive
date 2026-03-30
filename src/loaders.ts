@@ -1,4 +1,5 @@
 import { WebGLRenderer } from 'three';
+// @ts-ignore @types/three re-exports from meshoptimizer which may not resolve in all configs
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'

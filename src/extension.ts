@@ -2,7 +2,7 @@ import { BufferGeometry, Group, Material, Mesh, Object3D, RawShaderMaterial, Sha
 import { type GLTF, GLTFLoader, type GLTFLoaderPlugin, GLTFParser } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import { addDracoAndKTX2Loaders } from "./loaders.js";
-import { determineTextureMemoryInBytes, getParam, getSourceData, hasPixelData, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
+import { determineTextureMemoryInBytes, getParam, getSourceData, getTextureDimensions, hasPixelData, isMobileDevice, PromiseQueue, resolveUrl } from "./utils.internal.js";
 import { getRaycastMesh, registerRaycastMesh } from "./utils.js";
 
 // All of this has to be removed
@@ -641,9 +641,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return;
         }
         if (debug) {
-            const srcData = getSourceData(tex);
-            const width = tex.image?.width || srcData?.width || 0;
-            const height = tex.image?.height || srcData?.height || 0;
+            const { width, height } = getTextureDimensions(tex);
             console.log(`> gltf-progressive: register texture[${index}] "${tex.name || tex.uuid}", Current: ${width}x${height}, Max: ${ext.lods[0]?.width}x${ext.lods[0]?.height}, uuid: ${tex.uuid}`, ext, tex);
         }
         // Put the extension info into the source (seems like tiled textures are cloned and the userdata etc is not properly copied BUT the source of course is not cloned)
@@ -870,9 +868,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         }
 
         function logDebugInfo(prefix: string, newCount: number) {
-            const srcData = getSourceData(texture);
-            let width = texture.image?.width || srcData?.width || 0;
-            let height = texture.image?.height || srcData?.height || 0;
+            let { width, height } = getTextureDimensions(texture);
             const textureSize = width && height ? `${width}x${height}` : "N/A";
             let memorySize = "N/A";
             if (width && height) {

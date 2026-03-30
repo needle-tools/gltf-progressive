@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-alpha] - 2026-03-30
+- three.js 183
+
 ## [3.6.0-beta.1] - 2026-06-09
 - Fix: texture LOD selection regressed for meshes that only have texture LODs (no mesh LODs); screen coverage is now computed unconditionally so texture LODs update with camera distance again.
 

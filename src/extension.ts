@@ -1199,7 +1199,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
-    private static queue: PromiseQueue = new PromiseQueue(isMobileDevice() ? 20 : 50, { debug: debug != false });
+    private static _queue: PromiseQueue | undefined;
+    private static get queue() { return this._queue ??= new PromiseQueue(isMobileDevice() ? 20 : 50, { debug: debug != false }); }
 
     private static assignLODInformation(url: string, res: DeepWriteable<ObjectThatMightHaveLODs>, key: string, level: number, index?: number): void {
         if (!res) return;

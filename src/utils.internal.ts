@@ -85,7 +85,7 @@ export class PromiseQueue<T = any> {
 
     constructor(public maxConcurrent: number, opts: { debug?: boolean } = {}) {
         this.debug = opts.debug ?? false;
-        window.requestAnimationFrame(this.tick)
+        if (typeof window !== "undefined") window.requestAnimationFrame(this.tick);
     }
 
     private tick = () => {

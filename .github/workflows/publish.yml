@@ -2,8 +2,9 @@ name: Release Workflow
 on:
   push:
     branches:
-      - 'release/rc'
+      - 'release/canary'
       - 'release/next'
+      - 'release/rc'
       - 'release/stable'
 
 jobs:
@@ -43,16 +44,17 @@ jobs:
       - name: Run build script
         run: npm run build
                 
-      - name: Publish to npm (stable branch)
-        if: startsWith(github.ref_name, 'release/stable')
-        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
-                
+      - name: Publish to npm (next and canary branches)
+        if: startsWith(github.ref_name, 'release/next') || startsWith(github.ref_name, 'release/canary')
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "${{ github.ref_name }}" --version+tag --version+hash --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+
       - name: Publish to npm (rc branch)
         if: startsWith(github.ref_name, 'release/rc')
         run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "rc" --version+tag --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
 
-      - name: Publish to npm (next and experimental branches)
-        if: startsWith(github.ref_name, 'release/next')
-        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "${{ github.ref_name }}" --version+tag --version+hash --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+      - name: Publish to npm (stable branch)
+        if: startsWith(github.ref_name, 'release/stable')
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+                
 
 

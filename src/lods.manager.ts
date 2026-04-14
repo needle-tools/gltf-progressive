@@ -148,7 +148,31 @@ export class LODsManager {
     private _promiseGroupIds: number = 0;
 
     /**
-     * Call to await LODs loading during the next render cycle.
+     * Returns a promise that resolves once all LOD requests initiated during the next render cycles have finished loading.
+     * This is useful for hiding low-resolution placeholders (e.g. with a loading overlay or CSS blur) until high-quality assets are ready.
+     *
+     * By default, the returned promise captures LOD loading requests for 2 frames and resolves when all of them complete.
+     * Use `waitForFirstCapture` if no LOD requests may happen immediately (e.g. after a scene switch).
+     *
+     * @param opts - Optional configuration for how long to capture and what to wait for. See {@link PromiseGroupOptions}.
+     * @returns A promise that resolves with `{ cancelled, awaited_count, resolved_count }` once all captured LOD loads complete (or the signal aborts).
+     *
+     * @example
+     * ```ts
+     * // Wait for initial LODs to finish loading, then remove a blur overlay
+     * const result = await lodsManager.awaitLoading({
+     *     frames: 5,
+     *     signal: AbortSignal.timeout(10_000),
+     * });
+     * console.log(`Loaded ${result.resolved_count} of ${result.awaited_count} LODs`);
+     * document.querySelector('.blur-overlay')?.remove();
+     * ```
+     *
+     * @example
+     * ```ts
+     * // Wait until at least one LOD starts loading before resolving
+     * await lodsManager.awaitLoading({ waitForFirstCapture: true });
+     * ```
      */
     awaitLoading(opts?: PromiseGroupOptions) {
         const id = this._promiseGroupIds++;
@@ -179,16 +203,46 @@ export class LODsManager {
 
 
     private readonly _lodchangedlisteners: LODChangedEventListener[] = [];
+    /**
+     * Register a listener that is called whenever a mesh or texture LOD level has finished loading and has been applied.
+     * The listener receives the type of asset (`"mesh"` or `"texture"`), the new LOD level, and the affected object.
+     *
+     * @param evt - The event type. Currently only `"changed"` is supported.
+     * @param listener - Callback invoked after a LOD swap completes.
+     * @return A function to unregister the listener.
+     *
+     * @example
+     * ```ts
+     * lodsManager.addEventListener("changed", ({ type, level, object }) => {
+     *     console.log(`${type} LOD changed to level ${level}`, object);
+     * });
+     * ```
+     */
     addEventListener(evt: "changed", listener: LODChangedEventListener) {
         if (evt === "changed") {
             this._lodchangedlisteners.push(listener);
+            return () => {
+                this.removeEventListener(evt, listener);
+            }
         }
+        return () => {};
     }
+    /**
+     * Remove a previously registered `"changed"` event listener.
+     * @param evt - The event type (`"changed"`).
+     * @param listener - The listener to remove.
+     * @return `true` if the listener was found and removed, `false` otherwise.
+     */
     removeEventListener(evt: "changed", listener: LODChangedEventListener) {
+        let removed = false;
         if (evt === "changed") {
             const index = this._lodchangedlisteners.indexOf(listener);
-            if (index >= 0) this._lodchangedlisteners.splice(index, 1);
+            if (index >= 0) {
+                this._lodchangedlisteners.splice(index, 1);
+                removed = true;
+            }
         }
+        return removed;
     }
 
     // readonly plugins: NEEDLE_progressive_plugin[] = [];
@@ -255,6 +309,21 @@ export class LODsManager {
         this.#originalRender = undefined;
     }
 
+    /**
+     * Manually trigger a LOD update for a scene and camera.
+     * Only needed when {@link manual} is set to `true` — otherwise LOD updates happen automatically on each render call.
+     *
+     * @param scene - The scene containing objects with progressive LODs.
+     * @param camera - The camera used to determine screen coverage and LOD levels.
+     *
+     * @example
+     * ```ts
+     * const lodsManager = LODsManager.get(renderer);
+     * lodsManager.manual = true;
+     * // ... later, trigger an update at a specific point:
+     * lodsManager.update(scene, camera);
+     * ```
+     */
     update(scene: Scene, camera: Camera) {
         this.internalUpdate(scene, camera);
     }

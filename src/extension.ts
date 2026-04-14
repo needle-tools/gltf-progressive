@@ -83,6 +83,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
     // #region PUBLIC API
 
+    /**
+     * Get the progressive mesh LOD extension data associated with a geometry.
+     * Returns the extension metadata (available LOD levels, vertex/index counts, densities) if the geometry was registered with progressive LODs, or `null` otherwise.
+     *
+     * @param geo - The buffer geometry to look up.
+     * @returns The mesh LOD extension data, or `null` if no progressive LODs are registered for this geometry.
+     */
     static getMeshLODExtension(geo: BufferGeometry): NEEDLE_ext_progressive_mesh | null {
         const info = this.getAssignedLODInformation(geo);
         if (info?.key) {
@@ -91,12 +98,28 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
+    /**
+     * Get the glTF primitive index for a geometry within its parent mesh.
+     * A single glTF mesh node can contain multiple primitives (sub-geometries). This returns which primitive the geometry corresponds to.
+     *
+     * @param geo - The buffer geometry to look up.
+     * @returns The zero-based primitive index, or `-1` if no LOD information is assigned to this geometry.
+     */
     static getPrimitiveIndex(geo: BufferGeometry) {
         const index = this.getAssignedLODInformation(geo)?.index;
         if (index === undefined || index === null) return -1;
         return index;
     }
 
+    /**
+     * Compute the minimum and maximum number of texture LOD levels across all textures of a material (or array of materials).
+     * Iterates over all texture slots on the material and collects LOD count ranges and per-level resolution bounds.
+     * Results are cached on the material so subsequent calls are free.
+     *
+     * @param material - A single material or an array of materials to inspect.
+     * @param minmax - Optional accumulator to merge results into (used internally for recursive calls with material arrays).
+     * @returns An object with `min_count` / `max_count` (the range of LOD levels across all textures) and a per-level `lods` array with `min_height` / `max_height`.
+     */
     static getMaterialMinMaxLODsCount(material: Material | Material[], minmax?: TextureLODsMinMaxInfo): TextureLODsMinMaxInfo {
         const self = this;
 
@@ -602,7 +625,15 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     }
 
     /**
-     * Register a texture with LOD information
+     * Register a texture with progressive LOD information. This associates the texture with its LOD extension data
+     * so the LODs manager can later swap it for higher or lower resolution versions based on screen coverage.
+     * Typically called during glTF loading when the progressive extension is parsed.
+     *
+     * @param url - The source URL of the glTF file this texture was loaded from.
+     * @param tex - The three.js Texture instance to register.
+     * @param level - The LOD level this texture represents (0 = highest resolution).
+     * @param index - The texture index within the glTF file.
+     * @param ext - The parsed progressive texture extension data containing all available LOD levels and their dimensions.
      */
     static registerTexture = (url: string, tex: Texture, level: number, index: number, ext: NEEDLE_ext_progressive_texture) => {
         if (!tex) {
@@ -625,7 +656,17 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     };
 
     /**
-     * Register a mesh with LOD information
+     * Register a mesh with progressive LOD information. This associates the mesh geometry with its LOD extension data
+     * so the LODs manager can later swap it for higher or lower density versions based on screen coverage.
+     * Typically called during glTF loading when the progressive extension is parsed.
+     * If the mesh is registered at a level > 0 (i.e. not full resolution), a raycast mesh is automatically preserved for accurate picking.
+     *
+     * @param url - The source URL of the glTF file this mesh was loaded from.
+     * @param key - A unique key identifying this mesh's LOD group (typically derived from the extension GUID).
+     * @param mesh - The three.js Mesh instance to register.
+     * @param level - The LOD level this mesh represents (0 = highest resolution / full density).
+     * @param index - The primitive index within the glTF mesh node.
+     * @param ext - The parsed progressive mesh extension data containing all available LOD levels with vertex/index counts and densities.
      */
     static registerMesh = (url: string, key: string, mesh: Mesh, level: number, index: number, ext: NEEDLE_ext_progressive_mesh) => {
         const geometry = mesh.geometry as BufferGeometry;

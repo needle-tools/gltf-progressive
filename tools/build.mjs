@@ -27,9 +27,10 @@ async function run() {
     packageJson.exports["."].import = "./lib/index.js"
     await writeFile(outPackageJson, JSON.stringify(packageJson, undefined, 2));
 
-    // copy Readme and Changelog
+    // copy Readme, Changelog, and License
     await copyFile("CHANGELOG.md", outDir + "/CHANGELOG.md");
     await copyFile("README.md", outDir + "/README.md");
+    await copyFile("LICENSE", outDir + "/LICENSE");
 
     // update version
     updateVersion(packageJson);

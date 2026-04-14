@@ -12,6 +12,7 @@
     "type": "git",
     "url": "git+https://github.com/needle-tools/gltf-progressive"
   },
+  "license": "MIT",
   "readme": "README.md",
   "keywords": [
     "three.js",
@@ -51,7 +52,8 @@
     "gltf-progressive.js",
     "gltf-progressive.min.js",
     "gltf-progressive.umd.cjs",
-    "NEEDLE_progressive"
+    "NEEDLE_progressive",
+    "LICENSE"
   ],
   "watch": {
     "build:lib": {

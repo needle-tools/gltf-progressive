@@ -4,6 +4,14 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.6.0-alpha.1] - 2026-05-25
+- Improve: progressive texture loading now tracks material texture slots more carefully, keeping shared textures alive while they are still used and disposing them once the last tracked slot moves away.
+- Improve: concurrent progressive texture requests for the same material slot now share the same in-flight work, avoiding duplicate loads for heavily instanced scenes.
+- Improve: cached progressive resources are checked before and after waiting for a load slot, reducing duplicate network and GPU work when many instances request the same LOD at once.
+- Improve: `assignTextureLOD` now uses an explicit `{ force: true }` option for debug or explicit LOD overrides, while normal calls keep the best already-loaded texture LOD.
+- Improve: `debugprogressive=colors` and instancing LOD debug colors now use the same expanded LOD color palette.
+- Fix: shared progressive textures are no longer repeatedly loaded and disposed while cloned or instanced objects are still using them.
+
 ## [3.4.0-beta.3] - 2026-03-24
 - Add: `NEEDLE_progressive.maxConcurrentLoadingTasks` property to control how many LOD meshes and textures are allowed to be fetched concurrently. Defaults to `50`
 

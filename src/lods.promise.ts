@@ -134,7 +134,7 @@ export class PromiseGroup {
         }
         if (this._maxPromisesPerObject >= 1) {
             if (this._seen.has(object)) {
-                let count = this._seen.get(object)!;
+                const count = this._seen.get(object)!;
                 if (count >= this._maxPromisesPerObject) {
                     if (debug) console.warn(`PromiseGroup: Already awaiting object ignoring new promise for it.`);
                     return;

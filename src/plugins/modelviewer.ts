@@ -125,7 +125,7 @@ function _patchModelViewer(modelviewer: HTMLElement) {
         function renderFrames() {
             if (needsRender) {
                 let forcedFrames = 0;
-                let interval = setInterval(() => {
+                const interval = setInterval(() => {
                     if (forcedFrames++ > 5) {
                         clearInterval(interval);
                         return;

@@ -7,7 +7,7 @@ let debug_RenderWireframe: boolean | undefined = undefined;
 export let debug_OverrideLodLevel: number = -1; // -1 is automatic
 
 if (debug) {
-    let maxLevel = 6;
+    const maxLevel = 6;
     function debugToggleProgressive() {
         debug_OverrideLodLevel += 1;
         if (debug_OverrideLodLevel >= maxLevel) {

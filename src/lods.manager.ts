@@ -1,4 +1,4 @@
-import { Box3, BufferGeometry, Camera, Clock, Color, Material, Matrix4, Mesh, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferGeometry, Camera, Clock, Color, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.js"
@@ -57,6 +57,184 @@ export const lodDebugColors = [
     0x4d908e,
     0x555555,
 ];
+
+export type MeshLODSelectionOptions = {
+    geometry: BufferGeometry;
+    matrixWorld: Matrix4;
+    camera: Camera;
+    projectionScreenMatrix: Matrix4;
+    desiredDensity: number;
+    canvasHeight?: number;
+    currentLevel?: number;
+    boundingBox?: Box3 | null;
+    xrEnabled?: boolean;
+    debugDrawLine?: (a: Vector3, b: Vector3, color: number) => void;
+    warnMissingPrimitiveDensities?: boolean;
+    target?: MeshLODSelectionResult;
+};
+
+export type MeshLODSelectionResult = {
+    level: number;
+    primitiveIndex: number;
+    screenCoverage: number;
+    screenspaceVolume: Vector3;
+    centrality: number;
+};
+
+const _meshLODWorldBox = new Box3();
+const _meshLODProjectedBox = new Box3();
+const _meshLODCameraSpaceBox = new Box3();
+const _meshLODBoxSize = new Vector3();
+const _meshLODCameraSpaceBoxSize = new Vector3();
+const _meshLODProjectionInverse = new Matrix4();
+const _meshLODCorner0 = new Vector3();
+const _meshLODCorner1 = new Vector3();
+const _meshLODCorner2 = new Vector3();
+const _meshLODCorner3 = new Vector3();
+
+function isInsideProjectedBox(box: Box3, projectionScreenMatrix: Matrix4) {
+    const min = box.min;
+    const max = box.max;
+    const centerx = (min.x + max.x) * 0.5;
+    const centery = (min.y + max.y) * 0.5;
+    const point = _meshLODCorner0.set(centerx, centery, min.z).applyMatrix4(projectionScreenMatrix);
+    return point.z < 0;
+}
+
+export function calculateMeshLODLevel(options: MeshLODSelectionOptions): MeshLODSelectionResult {
+    const {
+        geometry,
+        matrixWorld,
+        camera,
+        projectionScreenMatrix,
+        desiredDensity,
+        canvasHeight = 0,
+        currentLevel = -1,
+        xrEnabled = false,
+        debugDrawLine,
+        warnMissingPrimitiveDensities = false,
+    } = options;
+
+    const meshLods = NEEDLE_progressive.getMeshLODExtension(geometry)?.lods;
+    const primitiveIndex = NEEDLE_progressive.getPrimitiveIndex(geometry);
+    const result: MeshLODSelectionResult = options.target ?? {
+        level: currentLevel,
+        primitiveIndex,
+        screenCoverage: 0,
+        screenspaceVolume: new Vector3(),
+        centrality: 1,
+    };
+    result.level = currentLevel;
+    result.primitiveIndex = primitiveIndex;
+    result.screenCoverage = 0;
+    result.screenspaceVolume.set(0, 0, 0);
+    result.centrality = 1;
+    if (!meshLods?.length) return result;
+
+    let boundingBox = options.boundingBox ?? geometry.boundingBox;
+    if (!boundingBox) {
+        geometry.computeBoundingBox();
+        boundingBox = geometry.boundingBox;
+    }
+    if (!boundingBox) return result;
+
+    _meshLODWorldBox.copy(boundingBox).applyMatrix4(matrixWorld);
+    if ((camera as PerspectiveCamera).isPerspectiveCamera && isInsideProjectedBox(_meshLODWorldBox, projectionScreenMatrix)) {
+        result.level = 0;
+        result.screenCoverage = Infinity;
+        result.screenspaceVolume.set(Infinity, Infinity, Infinity);
+        return result;
+    }
+
+    _meshLODProjectedBox.copy(_meshLODWorldBox).applyMatrix4(projectionScreenMatrix);
+
+    if (xrEnabled && (camera as PerspectiveCamera).isPerspectiveCamera && (camera as PerspectiveCamera).fov > 70) {
+        const min = _meshLODProjectedBox.min;
+        const max = _meshLODProjectedBox.max;
+
+        let minX = min.x;
+        let minY = min.y;
+        let maxX = max.x;
+        let maxY = max.y;
+
+        const enlargementFactor = 2.0;
+        const centerBoost = 1.5;
+        const centerX = (min.x + max.x) * 0.5;
+        const centerY = (min.y + max.y) * 0.5;
+        minX = (minX - centerX) * enlargementFactor + centerX;
+        minY = (minY - centerY) * enlargementFactor + centerY;
+        maxX = (maxX - centerX) * enlargementFactor + centerX;
+        maxY = (maxY - centerY) * enlargementFactor + centerY;
+
+        const xCentrality = minX < 0 && maxX > 0 ? 0 : Math.min(Math.abs(min.x), Math.abs(max.x));
+        const yCentrality = minY < 0 && maxY > 0 ? 0 : Math.min(Math.abs(min.y), Math.abs(max.y));
+        const centrality = Math.max(xCentrality, yCentrality);
+        result.centrality = (centerBoost - centrality) * (centerBoost - centrality) * (centerBoost - centrality);
+    }
+
+    const boxSize = _meshLODProjectedBox.getSize(_meshLODBoxSize);
+    boxSize.multiplyScalar(0.5);
+    if (globalThis.screen?.availHeight > 0 && canvasHeight > 0) {
+        boxSize.multiplyScalar(canvasHeight / globalThis.screen.availHeight);
+    }
+    if ((camera as PerspectiveCamera).isPerspectiveCamera) {
+        boxSize.x *= (camera as PerspectiveCamera).aspect;
+    }
+
+    _meshLODCameraSpaceBox.copy(boundingBox).applyMatrix4(matrixWorld).applyMatrix4(camera.matrixWorldInverse);
+    const cameraSpaceSize = _meshLODCameraSpaceBox.getSize(_meshLODCameraSpaceBoxSize);
+    const screenMax = Math.max(boxSize.x, boxSize.y);
+    const cameraSpaceMax = Math.max(cameraSpaceSize.x, cameraSpaceSize.y);
+    if (screenMax !== 0 && cameraSpaceMax !== 0) {
+        boxSize.z = cameraSpaceSize.z / cameraSpaceMax * screenMax;
+    }
+
+    const screenCoverage = Math.max(boxSize.x, boxSize.y, boxSize.z) * result.centrality;
+    result.screenCoverage = screenCoverage;
+    result.screenspaceVolume.copy(boxSize);
+    if (screenCoverage <= 0) return result;
+
+    if (debugDrawLine) {
+        const mat = _meshLODProjectionInverse.copy(projectionScreenMatrix);
+        mat.invert();
+
+        _meshLODCorner0.copy(_meshLODProjectedBox.min);
+        _meshLODCorner1.copy(_meshLODProjectedBox.max);
+        _meshLODCorner1.x = _meshLODCorner0.x;
+        _meshLODCorner2.copy(_meshLODProjectedBox.max);
+        _meshLODCorner2.y = _meshLODCorner0.y;
+        _meshLODCorner3.copy(_meshLODProjectedBox.max);
+        const z = (_meshLODCorner0.z + _meshLODCorner3.z) * 0.5;
+        _meshLODCorner0.z = _meshLODCorner1.z = _meshLODCorner2.z = _meshLODCorner3.z = z;
+
+        _meshLODCorner0.applyMatrix4(mat);
+        _meshLODCorner1.applyMatrix4(mat);
+        _meshLODCorner2.applyMatrix4(mat);
+        _meshLODCorner3.applyMatrix4(mat);
+
+        debugDrawLine(_meshLODCorner0, _meshLODCorner1, 0x0000ff);
+        debugDrawLine(_meshLODCorner0, _meshLODCorner2, 0x0000ff);
+        debugDrawLine(_meshLODCorner1, _meshLODCorner3, 0x0000ff);
+        debugDrawLine(_meshLODCorner2, _meshLODCorner3, 0x0000ff);
+    }
+
+    for (let i = 0; i < meshLods.length; i++) {
+        const lod = meshLods[i];
+        const density = lod.densities?.[primitiveIndex] || lod.density || .00001;
+
+        if (primitiveIndex > 0 && warnMissingPrimitiveDensities && isDevelopmentServer() && !lod.densities && !globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"]) {
+            globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"] = true;
+            console.warn(`[Needle Progressive] Detected usage of mesh without primitive densities. This might cause incorrect LOD level selection: Consider re-optimizing your model by updating your Needle Integration, Needle glTF Pipeline or running optimization again on Needle Cloud.`);
+        }
+
+        if (density / screenCoverage < desiredDensity) {
+            result.level = i;
+            break;
+        }
+    }
+
+    return result;
+}
 
 
 declare type LODChangedEventListener = (args: {
@@ -229,6 +407,7 @@ export class LODsManager {
         });
         return newGroup.ready;
     }
+
     private _postprocessPromiseGroups() {
         if (this._newPromiseGroups.length === 0) return;
         for (let i = this._newPromiseGroups.length - 1; i >= 0; i--) {
@@ -613,27 +792,7 @@ export class LODsManager {
     // private testIfLODLevelsAreAvailable() {
 
     private readonly _sphere = new Sphere();
-    private readonly _tempBox = new Box3();
-    private readonly _tempBox2 = new Box3();
-    private readonly tempMatrix = new Matrix4();
     private readonly _tempWorldPosition = new Vector3();
-    private readonly _tempBoxSize = new Vector3();
-    private readonly _tempBox2Size = new Vector3();
-
-    private static corner0 = new Vector3();
-    private static corner1 = new Vector3();
-    private static corner2 = new Vector3();
-    private static corner3 = new Vector3();
-
-    private static readonly _tempPtInside = new Vector3();
-    private static isInside(box: Box3, matrix: Matrix4) {
-        const min = box.min;
-        const max = box.max;
-        const centerx = (min.x + max.x) * 0.5;
-        const centery = (min.y + max.y) * 0.5;
-        const pt1 = this._tempPtInside.set(centerx, centery, min.z).applyMatrix4(matrix);
-        return pt1.z < 0;
-    }
 
     private static skinnedMeshBoundsFrameOffsetCounter = 0;
     private static $skinnedMeshBoundsOffset = Symbol("gltf-progressive-skinnedMeshBoundsOffset");
@@ -728,8 +887,6 @@ export class LODsManager {
         }
 
         if (boundingBox) {
-            const cam = camera;
-
             // hack: if the mesh has vertex colors, has less than 100 vertices we always select the highest LOD
             if (mesh.geometry.attributes.color && mesh.geometry.attributes.color.count < 100) {
                 if (mesh.geometry.boundingSphere) {
@@ -744,146 +901,32 @@ export class LODsManager {
                 }
             }
 
-            // calculate size on screen
-            this._tempBox.copy(boundingBox);
+            const selection = calculateMeshLODLevel({
+                geometry: mesh.geometry,
+                matrixWorld: mesh.matrixWorld,
+                camera,
+                projectionScreenMatrix: this.projectionScreenMatrix,
+                desiredDensity,
+                canvasHeight,
+                currentLevel: state.lastLodLevel_Mesh,
+                boundingBox,
+                xrEnabled: this.renderer.xr.enabled,
+                debugDrawLine: debugProgressiveLoading ? LODsManager.debugDrawLine : undefined,
+                warnMissingPrimitiveDensities: true,
+            });
 
-            this._tempBox.applyMatrix4(mesh.matrixWorld);
-
-            // Converting into projection space has the disadvantage that objects further to the side
-            // will have a much larger coverage, especially with high-field-of-view situations like in VR.
-            // Alternatively, we could attempt to calculate angular coverage (some kind of polar coordinates maybe?)
-            // or introduce a correction factor based on "expected distortion" of the object.
-            // High distortions would lead to lower LOD levels.
-            // "Centrality" of the calculated screen-space bounding box could be a factor here –
-            // what's the distance of the bounding box to the center of the screen?
-            if ((cam as PerspectiveCamera).isPerspectiveCamera && LODsManager.isInside(this._tempBox, this.projectionScreenMatrix)) {
+            state.lastCentrality = selection.centrality;
+            state.lastScreenCoverage = selection.screenCoverage;
+            state.lastScreenspaceVolume.copy(selection.screenspaceVolume);
+            if (selection.screenCoverage === Infinity) {
                 result.mesh_lod = 0;
                 result.texture_lod = 0;
                 return;
             }
-            this._tempBox.applyMatrix4(this.projectionScreenMatrix);
 
-            // TODO might need to be adjusted for cameras that are rendered during an XR session but are 
-            // actually not XR cameras (e.g. a render texture)
-            if (this.renderer.xr.enabled && ((cam as PerspectiveCamera).isPerspectiveCamera) && (cam as PerspectiveCamera).fov > 70) {
-                // calculate centrality of the bounding box - how close is it to the screen center
-                const min = this._tempBox.min;
-                const max = this._tempBox.max;
-
-                let minX = min.x;
-                let minY = min.y;
-                let maxX = max.x;
-                let maxY = max.y;
-
-                // enlarge
-                const enlargementFactor = 2.0;
-                const centerBoost = 1.5;
-                const centerX = (min.x + max.x) * 0.5;
-                const centerY = (min.y + max.y) * 0.5;
-                minX = (minX - centerX) * enlargementFactor + centerX;
-                minY = (minY - centerY) * enlargementFactor + centerY;
-                maxX = (maxX - centerX) * enlargementFactor + centerX;
-                maxY = (maxY - centerY) * enlargementFactor + centerY;
-
-                const xCentrality = minX < 0 && maxX > 0 ? 0 : Math.min(Math.abs(min.x), Math.abs(max.x));
-                const yCentrality = minY < 0 && maxY > 0 ? 0 : Math.min(Math.abs(min.y), Math.abs(max.y));
-                const centrality = Math.max(xCentrality, yCentrality);
-
-                // heuristically determined to lower quality for objects at the edges of vision
-                state.lastCentrality = (centerBoost - centrality) * (centerBoost - centrality) * (centerBoost - centrality);
-            }
-            else {
-                state.lastCentrality = 1;
-            }
-
-            const boxSize = this._tempBox.getSize(this._tempBoxSize);
-            boxSize.multiplyScalar(0.5); // goes from -1..1, we want -0.5..0.5 for coverage in percent
-            if (screen.availHeight > 0) {
-                // correct for size of context on screen
-                if (canvasHeight > 0)
-                    boxSize.multiplyScalar(canvasHeight / screen.availHeight);
-            }
-            if ((camera as PerspectiveCamera).isPerspectiveCamera) {
-                boxSize.x *= (camera as PerspectiveCamera).aspect;
-            }
-            else if ((camera as OrthographicCamera).isOrthographicCamera) {
-                // const cam = camera as OrthographicCamera;
-                // boxSize.x *= cam.zoom * .01;
-            }
-
-            const matView = camera.matrixWorldInverse;
-            const box2 = this._tempBox2;
-            box2.copy(boundingBox);
-            box2.applyMatrix4(mesh.matrixWorld);
-            box2.applyMatrix4(matView);
-            const boxSize2 = box2.getSize(this._tempBox2Size);
-
-            // approximate depth coverage in relation to screenspace size
-            const max2 = Math.max(boxSize2.x, boxSize2.y);
-            const max1 = Math.max(boxSize.x, boxSize.y);
-            if (max1 != 0 && max2 != 0)
-                boxSize.z = boxSize2.z / Math.max(boxSize2.x, boxSize2.y) * Math.max(boxSize.x, boxSize.y);
-
-            state.lastScreenCoverage = Math.max(boxSize.x, boxSize.y, boxSize.z);
-            state.lastScreenspaceVolume.copy(boxSize);
-            state.lastScreenCoverage *= state.lastCentrality;
-
-            // draw screen size box
-            if (debugProgressiveLoading && LODsManager.debugDrawLine) {
-                const mat = this.tempMatrix.copy(this.projectionScreenMatrix);
-                mat.invert();
-
-                const corner0 = LODsManager.corner0;
-                const corner1 = LODsManager.corner1;
-                const corner2 = LODsManager.corner2;
-                const corner3 = LODsManager.corner3;
-
-                // get box corners, transform with camera space, and draw as quad lines
-                corner0.copy(this._tempBox.min);
-                corner1.copy(this._tempBox.max);
-                corner1.x = corner0.x;
-                corner2.copy(this._tempBox.max);
-                corner2.y = corner0.y;
-                corner3.copy(this._tempBox.max);
-                // draw outlines at the center of the box
-                const z = (corner0.z + corner3.z) * 0.5;
-                // all outlines should have the same depth in screen space
-                corner0.z = corner1.z = corner2.z = corner3.z = z;
-
-                corner0.applyMatrix4(mat);
-                corner1.applyMatrix4(mat);
-                corner2.applyMatrix4(mat);
-                corner3.applyMatrix4(mat);
-
-                LODsManager.debugDrawLine(corner0, corner1, 0x0000ff);
-                LODsManager.debugDrawLine(corner0, corner2, 0x0000ff);
-                LODsManager.debugDrawLine(corner1, corner3, 0x0000ff);
-                LODsManager.debugDrawLine(corner2, corner3, 0x0000ff);
-            }
-
-            let expectedLevel = 999;
-            // const framerate = this.context.time.smoothedFps;
-            if (mesh_lods && state.lastScreenCoverage > 0) {
-                for (let l = 0; l < mesh_lods.length; l++) {
-                    const lod = mesh_lods[l];
-                    const densityForThisLevel = lod.densities?.[primitive_index] || lod.density || .00001;
-                    const resultingDensity = densityForThisLevel / state.lastScreenCoverage;
-
-                    if (primitive_index > 0 && isDevelopmentServer() && !lod.densities && !globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"]) {
-                        window["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"] = true;
-                        console.warn(`[Needle Progressive] Detected usage of mesh without primitive densities. This might cause incorrect LOD level selection: Consider re-optimizing your model by updating your Needle Integration, Needle glTF Pipeline or running optimization again on Needle Cloud.`);
-                    }
-
-                    if (resultingDensity < desiredDensity) {
-                        expectedLevel = l;
-                        break;
-                    }
-                }
-            }
-
-            const isLowerLod = expectedLevel < mesh_level;
+            const isLowerLod = selection.level >= 0 && selection.level < mesh_level;
             if (isLowerLod) {
-                mesh_level = expectedLevel;
+                mesh_level = selection.level;
                 mesh_level_calculated = true;
             }
         }

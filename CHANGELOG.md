@@ -4,6 +4,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.6.0-alpha.2] - 2026-05-26
+- Add: mesh LOD selection can now be reused by renderers that manage their own batching, keeping progressive instanced meshes on independent LOD levels.
+- Add: `assignMeshLOD` can delegate applying a loaded geometry, so batched renderers can update one instance without changing every mesh that shares the source geometry.
+- Add: externally scheduled LOD loading work can be tracked by `LODsManager.awaitLoading`, keeping loading screens in sync with progressive instanced assets.
+
 ## [3.6.0-alpha.1] - 2026-05-25
 - Improve: progressive texture loading now tracks material texture slots more carefully, keeping shared textures alive while they are still used and disposing them once the last tracked slot moves away.
 - Improve: concurrent progressive texture requests for the same material slot now share the same in-flight work, avoiding duplicate loads for heavily instanced scenes.

@@ -408,6 +408,12 @@ export class LODsManager {
         return newGroup.ready;
     }
 
+    /** Track LOD work started outside this manager so {@link awaitLoading} waits for it too. */
+    trackLoadingPromise<T>(type: "mesh" | "texture", object: object, promise: Promise<T>) {
+        PromiseGroup.addPromise(type, object, promise, this._newPromiseGroups);
+        return promise;
+    }
+
     private _postprocessPromiseGroups() {
         if (this._newPromiseGroups.length === 0) return;
         for (let i = this._newPromiseGroups.length - 1; i >= 0; i--) {

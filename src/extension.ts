@@ -66,8 +66,6 @@ export type AssignTextureLODOptions = {
     force?: boolean;
 }
 
-
-
 // #region EXT
 
 /**
@@ -278,7 +276,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * });
      * ```
      */
-    static assignMeshLOD(mesh: Mesh, level: number): Promise<BufferGeometry | null> {
+    static assignMeshLOD(mesh: Mesh, level: number, options?: {
+        /** If false, load and return the requested geometry without assigning it to the mesh. Pass a function to apply it manually. */
+        apply?: boolean | ((geometry: BufferGeometry, level: number, mesh: Mesh) => boolean | void);
+    }): Promise<BufferGeometry | null> {
 
         if (!mesh) return Promise.resolve(null);
 
@@ -307,11 +308,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (geo && currentGeometry != geo) {
                         const isGeometry = (geo as BufferGeometry)?.isBufferGeometry;
                         // if (debug == "verbose") console.log("Progressive Mesh " + mesh.name + " loaded", currentGeometry, "→", geo, "\n", mesh)
-                        if (isGeometry) {
-                            mesh.geometry = geo;
+                        if (!isGeometry) {
+                            if (debug) {
+                                console.error("Invalid LOD geometry", geo);
+                            }
                         }
-                        else if (debug) {
-                            console.error("Invalid LOD geometry", geo);
+                        else if (typeof options?.apply === "function") {
+                            options.apply(geo, level, mesh);
+                        }
+                        else if (options?.apply !== false) {
+                            mesh.geometry = geo;
                         }
                     }
                 }

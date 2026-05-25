@@ -1,4 +1,4 @@
-import { Box3, BufferGeometry, Camera, Clock, Material, Matrix4, Mesh, MeshStandardMaterial, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferGeometry, Camera, Clock, Color, Material, Matrix4, Mesh, Object3D, OrthographicCamera, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.js"
@@ -8,6 +8,7 @@ import { applyDebugSettings, debug, debug_OverrideLodLevel } from "./lods.debug.
 import { PromiseGroup, PromiseGroupOptions } from "./lods.promise.js";
 
 const debugProgressiveLoading = getParam("debugprogressive");
+const debugProgressiveLODColors = debugProgressiveLoading === "colors";
 const suppressProgressiveLoading = getParam("noprogressive");
 
 const $lodsManager = Symbol("Needle:LODSManager");
@@ -21,6 +22,41 @@ export type LODManagerContext = {
 export declare type LOD_Results = { mesh_lod: number, texture_lod: number };
 
 const levels: LOD_Results = { mesh_lod: -1, texture_lod: -1 };
+const debugLODColor = new Color();
+export const lodDebugColors = [
+    0x35d05f,
+    0xa8d83a,
+    0xf3d13b,
+    0xf29332,
+    0xf0523b,
+    0xa856f0,
+    0x49a7f2,
+    0x32d7c4,
+    0xff6b9d,
+    0x6f7df7,
+    0xd66fd2,
+    0x35a853,
+    0xb7a51f,
+    0xe05d2f,
+    0x3c78d8,
+    0x00a6a6,
+    0xd7263d,
+    0x7f52ff,
+    0x46b450,
+    0xf7a531,
+    0x2f9be0,
+    0xb84592,
+    0x8a9a2a,
+    0x1f6f8b,
+    0xf05a9d,
+    0x9b5de5,
+    0x00bbf9,
+    0x00f5d4,
+    0xfee440,
+    0xf15bb5,
+    0x4d908e,
+    0x555555,
+];
 
 
 declare type LODChangedEventListener = (args: {
@@ -420,17 +456,6 @@ export class LODsManager {
                 case "MeshDepthMaterial":
                     continue;
             }
-            if (debugProgressiveLoading === "color") {
-                if (entry.material) {
-                    if (!entry.object["progressive_debug_color"]) {
-                        entry.object["progressive_debug_color"] = true;
-                        const randomColor = Math.random() * 0xffffff;
-                        const newMaterial = new MeshStandardMaterial({ color: randomColor });
-                        (entry.object as Mesh).material = newMaterial;
-                    }
-                }
-            }
-
             const object = entry.object as any;
             if (object instanceof Mesh || (object.isMesh)) {
                 this.updateLODs(scene, camera, object, desiredDensity);
@@ -498,6 +523,9 @@ export class LODsManager {
         if (debug && object.material && !object["isGizmo"]) {
             applyDebugSettings(object.material);
         }
+        if (debugProgressiveLODColors && object.material && !object["isGizmo"] && !object["isBatchedMesh"]) {
+            applyLODColor(object.material, levels.mesh_lod);
+        }
 
         for (const plugin of plugins) {
             plugin.onAfterUpdatedLOD?.(this.renderer, scene, camera, object, levels)
@@ -518,7 +546,7 @@ export class LODsManager {
 
         if (Array.isArray(material)) {
             for (const mat of material) {
-                this.loadProgressiveTextures(mat, level);
+                this.loadProgressiveTextures(mat, level, overrideLodLevel);
             }
             return;
         }
@@ -533,14 +561,16 @@ export class LODsManager {
             update = true;
         }
 
-        if (overrideLodLevel !== undefined && overrideLodLevel >= 0) {
+        const forceExactTextureLOD = overrideLodLevel !== undefined && overrideLodLevel >= 0;
+        if (forceExactTextureLOD) {
             update = material[$currentLOD] != overrideLodLevel;
             level = overrideLodLevel;
         }
 
         if (update) {
             material[$currentLOD] = level;
-            const promise = NEEDLE_progressive.assignTextureLOD(material, level).then(_ => {
+            const options = forceExactTextureLOD ? { force: true } : undefined;
+            const promise = NEEDLE_progressive.assignTextureLOD(material, level, options).then(_ => {
                 this._lodchangedlisteners.forEach(l => l({ type: "texture", level, object: material }));
             });
             PromiseGroup.addPromise("texture", material, promise, this._newPromiseGroups);
@@ -940,4 +970,25 @@ class LOD_state {
     lastScreenCoverage: number = 0;
     readonly lastScreenspaceVolume: Vector3 = new Vector3();
     lastCentrality: number = 0;
+}
+
+function applyLODColor(material: Material | Material[], level: number) {
+    if (level < 0) return;
+
+    if (Array.isArray(material)) {
+        for (const mat of material) {
+            applyLODColor(mat, level);
+        }
+        return;
+    }
+
+    if ("color" in material && material.color instanceof Color) {
+        material.color.copy(getLODColor(level, debugLODColor));
+        material.needsUpdate = true;
+    }
+}
+
+export function getLODColor(level: number, target: Color): Color {
+    const index = Math.max(0, Math.min(lodDebugColors.length - 1, Math.floor(level)));
+    return target.setHex(lodDebugColors[index]);
 }

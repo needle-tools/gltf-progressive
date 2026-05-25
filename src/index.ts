@@ -2,7 +2,7 @@ export { version as VERSION } from "./version.js"
 
 export * from "./extension.js"
 export * from "./plugins/index.js"
-export { LODsManager, type LOD_Results } from "./lods.manager.js"
+export { LODsManager, getLODColor, lodDebugColors, type LOD_Results } from "./lods.manager.js"
 export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, addDracoAndKTX2Loaders, configureLoader } from "./loaders.js"
 export { getRaycastMesh, registerRaycastMesh, useRaycastMeshes } from "./utils.js"
 

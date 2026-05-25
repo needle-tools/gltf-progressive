@@ -55,6 +55,17 @@ type TextureLODsMinMaxInfo = {
     lods: Array<{ min_height: number, max_height: number }>,
 }
 
+type PendingTextureSlotRequest = {
+    level: number;
+    force: boolean;
+    promise: Promise<Texture | null>;
+}
+
+export type AssignTextureLODOptions = {
+    /** Force the exact requested level. Intended for explicit/debug LOD overrides. */
+    force?: boolean;
+}
+
 
 
 // #region EXT
@@ -327,20 +338,22 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
      * @param level the level of detail to load (0 is the highest resolution) - currently only 0 is supported
      * @returns a promise that resolves to the material or texture with the requested LOD level
      */
-    static assignTextureLOD(materialOrTexture: Material, level: number): Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>;
-    static assignTextureLOD(materialOrTexture: Mesh, level: number): Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>;
-    static assignTextureLOD(materialOrTexture: Texture, level: number): Promise<Texture | null>;
-    static assignTextureLOD(materialOrTexture: Material | Texture | Mesh, level: number = 0)
+    static assignTextureLOD(materialOrTexture: Material, level: number, options?: AssignTextureLODOptions): Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>;
+    static assignTextureLOD(materialOrTexture: Mesh, level: number, options?: AssignTextureLODOptions): Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>;
+    static assignTextureLOD(materialOrTexture: Texture, level: number, options?: AssignTextureLODOptions): Promise<Texture | null>;
+    static assignTextureLOD(materialOrTexture: Material | Texture | Mesh, level: number = 0, options?: AssignTextureLODOptions)
         : Promise<Array<ProgressiveMaterialTextureLoadingResult> | Texture | null> {
 
         if (!materialOrTexture) return Promise.resolve(null);
+
+        const force = options?.force === true;
 
         if ((materialOrTexture as unknown as Mesh).isMesh === true) {
             const mesh = materialOrTexture as Mesh;
             if (Array.isArray(mesh.material)) {
                 const arr = new Array<Promise<Array<ProgressiveMaterialTextureLoadingResult> | null>>();
                 for (const mat of mesh.material) {
-                    const promise = this.assignTextureLOD(mat, level);
+                    const promise = this.assignTextureLOD(mat, level, options);
                     arr.push(promise);
                 }
                 return Promise.all(arr).then(res => {
@@ -354,7 +367,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 });
             }
             else {
-                return this.assignTextureLOD(mesh.material, level);
+                return this.assignTextureLOD(mesh.material, level, options);
             }
         }
 
@@ -363,6 +376,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             const promises: Array<Promise<Texture | null>> = [];
             const slots = new Array<string>();
 
+            this.trackCurrentMaterialTextureSlots(material);
+
             // Handle custom shaders / uniforms progressive textures. This includes support for VRM shaders
             if ((material as ShaderMaterial).uniforms && ((material as RawShaderMaterial).isRawShaderMaterial || (material as ShaderMaterial).isShaderMaterial === true)) {
                 // iterate uniforms of custom shaders
@@ -370,7 +385,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 for (const slot of Object.keys(shaderMaterial.uniforms)) {
                     const val = shaderMaterial.uniforms[slot].value as Texture;
                     if (val?.isTexture === true) {
-                        const task = this.assignTextureLODForSlot(val, level, material, slot).then(res => {
+                        const task = this.assignTextureLODForSlot(val, level, material, slot, force).then(res => {
                             if (res && shaderMaterial.uniforms[slot].value != res) {
                                 shaderMaterial.uniforms[slot].value = res;
                                 shaderMaterial.uniformsNeedUpdate = true;
@@ -386,7 +401,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 for (const slot of Object.keys(material)) {
                     const val = material[slot] as Texture;
                     if (val?.isTexture === true) {
-                        const task = this.assignTextureLODForSlot(val, level, material, slot);
+                        const task = this.assignTextureLODForSlot(val, level, material, slot, force);
                         promises.push(task);
                         slots.push(slot);
                     }
@@ -410,7 +425,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
         if (materialOrTexture instanceof Texture || (materialOrTexture as unknown as Texture).isTexture === true) {
             const texture = materialOrTexture as Texture;
-            return this.assignTextureLODForSlot(texture, level, null, null);
+            return this.assignTextureLODForSlot(texture, level, null, null, force);
         }
 
         return Promise.resolve(null);
@@ -431,7 +446,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
     // #region INTERNAL
 
-    private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null): Promise<Texture | null> {
+    private static assignTextureLODForSlot(current: Texture, level: number, material: Material | null, slot: string | null, force: boolean): Promise<Texture | null> {
         if (current?.isTexture !== true) {
             return Promise.resolve(null);
         }
@@ -440,7 +455,24 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             return Promise.resolve(current);
         }
 
-        return NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
+        const currentLOD = this.getAssignedLODInformation(current);
+        if (currentLOD) {
+            if (currentLOD.level === level) {
+                return Promise.resolve(current);
+            }
+            if (!force && currentLOD.level < level) {
+                return Promise.resolve(current);
+            }
+        }
+
+        if (material && slot) {
+            const pending = this.getPendingTextureSlotRequest(material, slot);
+            if (pending && pending.level === level && pending.force === force) {
+                return pending.promise;
+            }
+        }
+
+        const promise = NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
 
             // this can currently not happen
             if (Array.isArray(tex)) {
@@ -452,45 +484,21 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 if (tex != current) {
 
                     if (material && slot) {
-                        const assigned = material[slot] as Texture;
+                        const assigned = this.getMaterialTextureSlot(material, slot) ?? current;
                         // Check if the assigned texture LOD is higher quality than the current LOD
                         // This is necessary for cases where e.g. a texture is updated via an explicit call to assignTextureLOD
-                        if (assigned && !debug) {
+                        if (assigned && !force) {
                             const assignedLOD = this.getAssignedLODInformation(assigned as any);
                             if (assignedLOD && assignedLOD?.level < level) {
                                 if (debug === "verbose")
                                     console.warn("Assigned texture level is already higher: ", assignedLOD.level, level, material, assigned, tex);
-
-                                // Dispose the newly loaded texture since we're not using it
-                                // (the assigned texture is higher quality, so we reject the new one)
-                                // Note: We dispose directly here (not via untrackTextureUsage) because this texture
-                                // was never tracked/used - it was rejected immediately upon loading
-                                if (tex && tex !== assigned) {
-                                    if (debug || debugGC) {
-                                        console.log(`[gltf-progressive] Disposing rejected lower-quality texture LOD ${level} (assigned is ${assignedLOD.level})`, tex.uuid);
-                                    }
-                                    tex.dispose();
-                                }
 
                                 return null;
                             }
                             // assigned.dispose();
                         }
 
-                        // Track reference count for new texture
-                        this.trackTextureUsage(tex);
-
-                        // Untrack the old texture (may dispose if ref count hits 0)
-                        // This prevents accumulation of GPU VRAM while waiting for garbage collection
-                        if (assigned && assigned !== tex) {
-                            const wasDisposed = this.untrackTextureUsage(assigned);
-                            if (wasDisposed && (debug || debugGC)) {
-                                const assignedLOD = this.getAssignedLODInformation(assigned as any);
-                                console.log(`[gltf-progressive] Disposed old texture LOD ${assignedLOD?.level ?? '?'} → ${level} for ${material.name || material.type}.${slot}`, assigned.uuid);
-                            }
-                        }
-
-                        material[slot] = tex;
+                        this.assignTrackedTextureSlot(material, slot, tex);
                     }
 
                     // Note: We use reference counting above to track texture usage across multiple materials.
@@ -514,6 +522,155 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             console.error("Error loading LOD", current, err);
             return null;
         });
+
+        if (material && slot) {
+            this.setPendingTextureSlotRequest(material, slot, level, force, promise);
+        }
+
+        return promise;
+    }
+
+    // Track material slots, not just texture objects. A shared fallback texture can be
+    // referenced by many slots and should only be disposed after every slot moved away.
+    private static trackedTextureSlots = new WeakMap<Material, Map<string, Texture>>();
+    private static pendingTextureSlotRequests = new WeakMap<Material, Map<string, PendingTextureSlotRequest>>();
+
+    private static trackCurrentMaterialTextureSlots(material: Material): void {
+        if ((material as ShaderMaterial).uniforms && ((material as RawShaderMaterial).isRawShaderMaterial || (material as ShaderMaterial).isShaderMaterial === true)) {
+            const shaderMaterial = material as ShaderMaterial;
+            for (const slot of Object.keys(shaderMaterial.uniforms)) {
+                const value = shaderMaterial.uniforms[slot].value as Texture;
+                if (value?.isTexture === true) {
+                    this.ensureTrackedTextureSlot(material, slot, value);
+                }
+            }
+            return;
+        }
+
+        for (const slot of Object.keys(material)) {
+            const value = material[slot] as Texture;
+            if (value?.isTexture === true) {
+                this.ensureTrackedTextureSlot(material, slot, value);
+            }
+        }
+    }
+
+    private static getPendingTextureSlotRequest(material: Material, slot: string): PendingTextureSlotRequest | undefined {
+        return this.pendingTextureSlotRequests.get(material)?.get(slot);
+    }
+
+    private static setPendingTextureSlotRequest(material: Material, slot: string, level: number, force: boolean, promise: Promise<Texture | null>): void {
+        let slots = this.pendingTextureSlotRequests.get(material);
+        if (!slots) {
+            slots = new Map<string, PendingTextureSlotRequest>();
+            this.pendingTextureSlotRequests.set(material, slots);
+        }
+
+        const request: PendingTextureSlotRequest = { level, force, promise };
+        slots.set(slot, request);
+        promise.finally(() => {
+            const current = slots.get(slot);
+            if (current === request) {
+                slots.delete(slot);
+            }
+        });
+    }
+
+    private static getMaterialTextureSlot(material: Material, slot: string): Texture | null {
+        const uniforms = (material as ShaderMaterial).uniforms;
+        const uniform = uniforms?.[slot];
+        if (uniform?.value?.isTexture === true) {
+            return uniform.value as Texture;
+        }
+
+        const value = material[slot] as Texture;
+        if (value?.isTexture === true) {
+            return value;
+        }
+
+        return null;
+    }
+
+    private static setMaterialTextureSlot(material: Material, slot: string, texture: Texture): void {
+        const uniforms = (material as ShaderMaterial).uniforms;
+        const uniform = uniforms?.[slot];
+        if (uniform?.value?.isTexture === true) {
+            uniform.value = texture;
+            (material as ShaderMaterial).uniformsNeedUpdate = true;
+            return;
+        }
+
+        material[slot] = texture;
+    }
+
+    private static assignTrackedTextureSlot(material: Material, slot: string, texture: Texture): void {
+        let slots = this.trackedTextureSlots.get(material);
+        if (!slots) {
+            slots = new Map<string, Texture>();
+            this.trackedTextureSlots.set(material, slots);
+        }
+
+        const assigned = this.getMaterialTextureSlot(material, slot);
+        let previousTracked = slots.get(slot);
+
+        if (!previousTracked && assigned) {
+            previousTracked = this.ensureTrackedTextureSlot(material, slot, assigned);
+        }
+        else if (previousTracked && assigned && previousTracked !== assigned) {
+            this.releaseTrackedTextureSlot(material, slot, previousTracked);
+            previousTracked = this.ensureTrackedTextureSlot(material, slot, assigned);
+        }
+
+        if (previousTracked === texture && assigned === texture) {
+            return;
+        }
+
+        if (previousTracked && previousTracked !== texture) {
+            this.releaseTrackedTextureSlot(material, slot, previousTracked);
+        }
+
+        if (previousTracked !== texture) {
+            this.trackTextureUsage(texture);
+            slots.set(slot, texture);
+        }
+
+        if (assigned !== texture) {
+            this.setMaterialTextureSlot(material, slot, texture);
+        }
+    }
+
+    private static ensureTrackedTextureSlot(material: Material, slot: string, texture: Texture): Texture {
+        let slots = this.trackedTextureSlots.get(material);
+        if (!slots) {
+            slots = new Map<string, Texture>();
+            this.trackedTextureSlots.set(material, slots);
+        }
+
+        const previous = slots.get(slot);
+        if (previous === texture) {
+            return previous;
+        }
+
+        if (previous) {
+            this.releaseTrackedTextureSlot(material, slot, previous);
+        }
+
+        this.trackTextureUsage(texture);
+        slots.set(slot, texture);
+        return texture;
+    }
+
+    private static releaseTrackedTextureSlot(material: Material, slot: string, texture: Texture): void {
+        const slots = this.trackedTextureSlots.get(material);
+        if (slots?.get(slot) === texture) {
+            slots.delete(slot);
+        }
+
+        const wasDisposed = this.untrackTextureUsage(texture);
+        if (wasDisposed && (debug || debugGC)) {
+            const assignedLOD = this.getAssignedLODInformation(texture as any);
+            console.log(`[gltf-progressive] Disposed old texture LOD ${assignedLOD?.level ?? '?'} for ${material.name || material.type}.${slot}`, texture.uuid);
+        }
     }
 
 
@@ -760,6 +917,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
             // Clear all texture reference counts when disposing everything
             this.textureRefCounts.clear();
+            this.trackedTextureSlots = new WeakMap();
+            this.pendingTextureSlotRequests = new WeakMap();
         }
     }
 
@@ -965,75 +1124,15 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 // check if the requested file has already been loaded
                 const KEY = lod_url + "_" + lodInfo.guid;
 
-                const slot = await this.queue.slot(lod_url);
-
                 // check if the requested file is currently being loaded or was previously loaded
-                const existing = this.cache.get(KEY);
-                if (existing !== undefined) {
-                    if (debugverbose) console.log(`LOD ${level} was already loading/loaded: ${KEY}`);
+                const cached = await this.tryResolveLODCacheEntry(this.cache.get(KEY), KEY, lod_url, current, level, debugverbose);
+                if (cached.found) return cached.value as T;
 
-                    if (existing instanceof WeakRef) {
-                        // Previously resolved resource — check if still alive in memory
-                        const derefed = existing.deref();
-                        if (derefed) {
-                            let res: Texture | BufferGeometry = derefed;
-                            let resourceIsDisposed = false;
-                            if (res instanceof Texture && current instanceof Texture) {
-                                if (res.image?.data || res.source?.data) {
-                                    res = this.copySettings(current, res);
-                                } else {
-                                    resourceIsDisposed = true;
-                                }
-                            }
-                            else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
-                                if (!res.attributes.position?.array) {
-                                    resourceIsDisposed = true;
-                                }
-                            }
-                            if (!resourceIsDisposed) {
-                                return res as T;
-                            }
-                        }
-                        // Resource was garbage collected or disposed — remove stale entry and re-load
-                        this.cache.delete(KEY);
-                        if (debug) console.log(`[gltf-progressive] Re-loading GC'd/disposed resource: ${KEY}`);
-                    }
-                    else {
-                        // Promise — loading in progress or previously completed
-                        let res = await existing.catch(err => {
-                            console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
-                            return null;
-                        });
-                        let resouceIsDisposed = false;
-                        if (res == null) {
-                            // if the resource is null the last loading result didnt succeed (maybe because the url doesnt exist)
-                            // in which case we don't attempt to load it again
-                        }
-                        else if (res instanceof Texture && current instanceof Texture) {
-                            // check if the texture has been disposed or not
-                            if (res.image?.data || res.source?.data) {
-                                res = this.copySettings(current, res);
-                            }
-                            // if it has been disposed we need to load it again
-                            else {
-                                resouceIsDisposed = true;
-                                this.cache.delete(KEY);
-                            }
-                        }
-                        else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
-                            if (res.attributes.position?.array) {
-                                // the geometry is OK
-                            }
-                            else {
-                                resouceIsDisposed = true;
-                                this.cache.delete(KEY);
-                            }
-                        }
-                        if (!resouceIsDisposed) {
-                            return res as T;
-                        }
-                    }
-                }
+                const slot = await this.queue.slot(lod_url);
+                // Another request can fill the cache while this one waits for a queue slot.
+                // Re-checking here avoids duplicate loads for heavily instanced assets.
+                const cachedAfterQueue = await this.tryResolveLODCacheEntry(this.cache.get(KEY), KEY, lod_url, current, level, debugverbose);
+                if (cachedAfterQueue.found) return cachedAfterQueue.value as T;
 
                 // #region loading
                 if (!slot.use) {
@@ -1240,6 +1339,76 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return null;
     }
 
+    private static async tryResolveLODCacheEntry<T extends Texture | BufferGeometry>(
+        existing: LODCacheEntry | undefined,
+        key: string,
+        lodUrl: string,
+        current: T,
+        level: number,
+        debugverbose: boolean
+    ): Promise<{ found: false } | { found: true, value: T | null }> {
+        if (existing === undefined) {
+            return { found: false };
+        }
+
+        if (debugverbose) console.log(`LOD ${level} was already loading/loaded: ${key}`);
+
+        if (existing instanceof WeakRef) {
+            const derefed = existing.deref();
+            if (derefed) {
+                let res: Texture | BufferGeometry = derefed;
+                let resourceIsDisposed = false;
+                if (res instanceof Texture && current instanceof Texture) {
+                    if (res.image?.data || res.source?.data) {
+                        res = this.copySettings(current, res);
+                    } else {
+                        resourceIsDisposed = true;
+                    }
+                }
+                else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
+                    if (!res.attributes.position?.array) {
+                        resourceIsDisposed = true;
+                    }
+                }
+                if (!resourceIsDisposed) {
+                    return { found: true, value: res as T };
+                }
+            }
+            this.cache.delete(key);
+            if (debug) console.log(`[gltf-progressive] Re-loading GC'd/disposed resource: ${key}`);
+            return { found: false };
+        }
+
+        let res = await existing.catch(err => {
+            console.error(`Error loading LOD ${level} from ${lodUrl}\n`, err);
+            return null;
+        });
+        let resourceIsDisposed = false;
+        if (res == null) {
+            // Failed loads stay cached as null so we don't retry the same missing resource forever.
+        }
+        else if (res instanceof Texture && current instanceof Texture) {
+            if (res.image?.data || res.source?.data) {
+                res = this.copySettings(current, res);
+            }
+            else {
+                resourceIsDisposed = true;
+                this.cache.delete(key);
+            }
+        }
+        else if (res instanceof BufferGeometry && current instanceof BufferGeometry) {
+            if (!res.attributes.position?.array) {
+                resourceIsDisposed = true;
+                this.cache.delete(key);
+            }
+        }
+
+        if (resourceIsDisposed) {
+            return { found: false };
+        }
+        return { found: true, value: res as T | null };
+    }
+
     private static _queue: PromiseQueue | undefined;
     private static get queue() { return this._queue ??= new PromiseQueue(isMobileDevice() ? 20 : 50, { debug: debug != false }); }
 
@@ -1318,4 +1487,3 @@ class LODInformation {
             this.index = index;
     }
 };
-

@@ -58,7 +58,14 @@ type TextureLODsMinMaxInfo = {
 type PendingTextureSlotRequest = {
     level: number;
     force: boolean;
+    id: number;
     promise: Promise<Texture | null>;
+}
+
+type LatestTextureSlotRequest = {
+    id: number;
+    level: number;
+    force: boolean;
 }
 
 export type AssignTextureLODOptions = {
@@ -297,13 +304,19 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
             // const info = this.onProgressiveLoadStart(context, source, mesh, null);
             mesh["LOD:requested level"] = level;
-            return NEEDLE_progressive.getOrLoadLOD<BufferGeometry>(currentGeometry, level).then(geo => {
+            const shouldLoad = () => mesh["LOD:requested level"] === level || this.shouldApplyStaleMeshLOD(mesh, level);
+            return NEEDLE_progressive.getOrLoadLOD<BufferGeometry>(currentGeometry, level, {
+                isCurrent: shouldLoad,
+            }).then(geo => {
                 if (Array.isArray(geo)) {
                     const index = lodinfo.index || 0;
                     geo = geo[index];
                 }
-                if (mesh["LOD:requested level"] === level) {
-                    delete mesh["LOD:requested level"];
+                const isLatestRequest = mesh["LOD:requested level"] === level;
+                if (isLatestRequest || this.shouldApplyStaleMeshLOD(mesh, level)) {
+                    if (isLatestRequest) {
+                        delete mesh["LOD:requested level"];
+                    }
 
                     if (geo && currentGeometry != geo) {
                         const isGeometry = (geo as BufferGeometry)?.isBufferGeometry;
@@ -478,7 +491,14 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
         }
 
-        const promise = NEEDLE_progressive.getOrLoadLOD<Texture>(current, level).then(tex => {
+        const requestId = material && slot ? this.nextTextureSlotRequestId(material, slot, level, force) : 0;
+        const isCurrentRequest = () => !material || !slot || this.getLatestTextureSlotRequest(material, slot)?.id === requestId;
+        const shouldLoad = () => isCurrentRequest() || this.shouldApplyStaleTextureSlotLOD(material, slot, level, force);
+
+        const promise = NEEDLE_progressive.getOrLoadLOD<Texture>(current, level, {
+            isCurrent: shouldLoad,
+        }).then(tex => {
+            if (!isCurrentRequest() && !this.shouldApplyStaleTextureSlotLOD(material, slot, level, force)) return null;
 
             // this can currently not happen
             if (Array.isArray(tex)) {
@@ -530,7 +550,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         });
 
         if (material && slot) {
-            this.setPendingTextureSlotRequest(material, slot, level, force, promise);
+            this.setPendingTextureSlotRequest(material, slot, level, force, requestId, promise);
         }
 
         return promise;
@@ -540,6 +560,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     // referenced by many slots and should only be disposed after every slot moved away.
     private static trackedTextureSlots = new WeakMap<Material, Map<string, Texture>>();
     private static pendingTextureSlotRequests = new WeakMap<Material, Map<string, PendingTextureSlotRequest>>();
+    private static latestTextureSlotRequests = new WeakMap<Material, Map<string, LatestTextureSlotRequest>>();
+    private static textureSlotRequestId = 0;
 
     private static trackCurrentMaterialTextureSlots(material: Material): void {
         if ((material as ShaderMaterial).uniforms && ((material as RawShaderMaterial).isRawShaderMaterial || (material as ShaderMaterial).isShaderMaterial === true)) {
@@ -565,18 +587,56 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         return this.pendingTextureSlotRequests.get(material)?.get(slot);
     }
 
-    private static setPendingTextureSlotRequest(material: Material, slot: string, level: number, force: boolean, promise: Promise<Texture | null>): void {
+    private static nextTextureSlotRequestId(material: Material, slot: string, level: number, force: boolean): number {
+        let slots = this.latestTextureSlotRequests.get(material);
+        if (!slots) {
+            slots = new Map<string, LatestTextureSlotRequest>();
+            this.latestTextureSlotRequests.set(material, slots);
+        }
+
+        const id = ++this.textureSlotRequestId;
+        slots.set(slot, { id, level, force });
+        return id;
+    }
+
+    private static getLatestTextureSlotRequest(material: Material, slot: string): LatestTextureSlotRequest | undefined {
+        return this.latestTextureSlotRequests.get(material)?.get(slot);
+    }
+
+    private static shouldApplyStaleTextureSlotLOD(material: Material | null, slot: string | null, level: number, force: boolean): boolean {
+        if (!material || !slot) return false;
+        const latest = this.getLatestTextureSlotRequest(material, slot);
+        const assigned = this.getMaterialTextureSlot(material, slot);
+        const assignedLODLevel = this.getAssignedLODInformation(assigned as any)?.level ?? Infinity;
+        if (level >= assignedLODLevel) return false;
+
+        if (force) {
+            if (!latest) return false;
+            return level >= latest.level;
+        }
+
+        return true;
+    }
+
+    private static shouldApplyStaleMeshLOD(mesh: Mesh, level: number): boolean {
+        const latestLevel = mesh["LOD:requested level"];
+        if (typeof latestLevel !== "number") return false;
+        const assignedLODLevel = this.getAssignedLODInformation(mesh.geometry)?.level ?? Infinity;
+        return level < assignedLODLevel && level >= latestLevel;
+    }
+
+    private static setPendingTextureSlotRequest(material: Material, slot: string, level: number, force: boolean, id: number, promise: Promise<Texture | null>): void {
         let slots = this.pendingTextureSlotRequests.get(material);
         if (!slots) {
             slots = new Map<string, PendingTextureSlotRequest>();
             this.pendingTextureSlotRequests.set(material, slots);
         }
 
-        const request: PendingTextureSlotRequest = { level, force, promise };
+        const request: PendingTextureSlotRequest = { level, force, id, promise };
         slots.set(slot, request);
         promise.finally(() => {
             const current = slots.get(slot);
-            if (current === request) {
+            if (current?.id === id) {
                 slots.delete(slot);
             }
         });
@@ -925,6 +985,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             this.textureRefCounts.clear();
             this.trackedTextureSlots = new WeakMap();
             this.pendingTextureSlotRequests = new WeakMap();
+            this.latestTextureSlotRequests = new WeakMap();
+            this.textureSlotRequestId = 0;
         }
     }
 
@@ -1049,7 +1111,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     private static readonly workers: Array<GLTFLoaderWorker> = [];
     private static _workersIndex = 0;
 
-    private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number): Promise<T | null> {
+    private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number, options?: { isCurrent?: () => boolean }): Promise<T | null> {
 
         const debugverbose = debug == "verbose";
 
@@ -1134,7 +1196,16 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const cached = await this.tryResolveLODCacheEntry(this.cache.get(KEY), KEY, lod_url, current, level, debugverbose);
                 if (cached.found) return cached.value as T;
 
+                if (options?.isCurrent?.() === false) {
+                    if (debugverbose) console.log(`Skipping stale LOD ${level} request before queue: ${lod_url}`);
+                    return null;
+                }
+
                 const slot = await this.queue.slot(lod_url);
+                if (options?.isCurrent?.() === false) {
+                    if (debugverbose) console.log(`Skipping stale LOD ${level} request after queue: ${lod_url}`);
+                    return null;
+                }
                 // Another request can fill the cache while this one waits for a queue slot.
                 // Re-checking here avoids duplicate loads for heavily instanced assets.
                 const cachedAfterQueue = await this.tryResolveLODCacheEntry(this.cache.get(KEY), KEY, lod_url, current, level, debugverbose);
@@ -1326,9 +1397,17 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             }
             else {
                 if (current instanceof Texture) {
+                    if (options?.isCurrent?.() === false) {
+                        if (debugverbose) console.log(`Skipping stale texture LOD ${level} request: ${lod_url}`);
+                        return null;
+                    }
                     if (debugverbose) console.log("Load texture from uri: " + lod_url);
                     const loader = new TextureLoader();
                     const tex = await loader.loadAsync(lod_url);
+                    if (options?.isCurrent?.() === false) {
+                        tex?.dispose();
+                        return null;
+                    }
                     if (tex) {
                         (tex as any).guid = lodInfo.guid;
                         tex.flipY = false;

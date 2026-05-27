@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.6.0-alpha.3] - 2026-05-27
+- Fix: stale progressive mesh and texture LOD requests no longer overwrite newer explicit targets, while still allowing useful intermediate LODs to apply during rapid target changes.
+
 ## [3.6.0-alpha.2] - 2026-05-26
 - Add: mesh LOD selection can now be reused by renderers that manage their own batching, keeping progressive instanced meshes on independent LOD levels.
 - Add: `assignMeshLOD` can delegate applying a loaded geometry, so batched renderers can update one instance without changing every mesh that shares the source geometry.

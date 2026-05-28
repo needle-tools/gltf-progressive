@@ -292,6 +292,10 @@ export class LODsManager {
         const index = plugins.indexOf(plugin);
         if (index >= 0) plugins.splice(index, 1);
     }
+    /** Read-only snapshot of the currently registered plugins, for inspection. Use {@link addPlugin} / {@link removePlugin} to modify the registry. */
+    static getPlugins(): readonly NEEDLE_progressive_plugin[] {
+        return plugins;
+    }
 
     /**
      * Gets the LODsManager for the given renderer. If the LODsManager does not exist yet, it will be created.  

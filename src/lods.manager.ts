@@ -1,4 +1,5 @@
-import { Box3, BufferGeometry, Camera, Clock, Color, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import * as THREE from "three";
+import { Box3, BufferGeometry, Camera, Color, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.js"
@@ -20,6 +21,23 @@ export type LODManagerContext = {
 }
 
 export declare type LOD_Results = { mesh_lod: number, texture_lod: number };
+
+type RenderListLike = {
+    opaque?: Array<any>;
+    transparent?: Array<any>;
+    transmissive?: Array<any>;
+    transparentDoublePass?: Array<any>;
+};
+
+type LODTimer = {
+    update?: () => void;
+    getDelta: () => number;
+};
+
+const ThreeRuntime = THREE as typeof THREE & {
+    Timer?: new () => LODTimer;
+    Clock: new () => LODTimer;
+};
 
 const levels: LOD_Results = { mesh_lod: -1, texture_lod: -1 };
 const debugLODColor = new Color();
@@ -57,6 +75,11 @@ export const lodDebugColors = [
     0x4d908e,
     0x555555,
 ];
+
+function createLODTimer(): LODTimer {
+    const Timer = ThreeRuntime.Timer || ThreeRuntime.Clock;
+    return new Timer();
+}
 
 export type MeshLODSelectionOptions = {
     geometry: BufferGeometry;
@@ -489,11 +512,11 @@ export class LODsManager {
 
     #originalRender?: (scene: Scene, camera: Camera) => void;
 
-    readonly #clock: Clock = new Clock();
     #frame: number = 0;
     #delta: number = 0;
     #time: number = 0;
     #fps: number = 0;
+    readonly #clock: LODTimer = createLODTimer();
     private _fpsBuffer: number[] = [60, 60, 60, 60, 60];
 
     /**
@@ -515,7 +538,8 @@ export class LODsManager {
             if (renderTarget == null || ("isXRRenderTarget" in renderTarget && renderTarget.isXRRenderTarget)) {
                 stack = 0;
                 self.#frame += 1;
-                self.#delta = self.#clock.getDelta();
+                self.#clock.update?.();
+                self.#delta = Math.max(self.#clock.getDelta(), 1 / 1000);
                 self.#time += self.#delta;
                 self._fpsBuffer.shift();
                 self._fpsBuffer.push(1 / self.#delta);
@@ -558,7 +582,8 @@ export class LODsManager {
 
         if (this.pause) return;
 
-        const renderList = this.renderer.renderLists.get(scene, 0);
+        const renderList = this.getRenderList(scene, camera, _stack);
+        if (!renderList) return;
         const opaque = renderList.opaque;
         let updateLODs = true;
 
@@ -617,7 +642,8 @@ export class LODsManager {
      * Update LODs in a scene
      */
     private internalUpdate(scene: Scene, camera: Camera) {
-        const renderList = this.renderer.renderLists.get(scene, 0);
+        const renderList = this.getRenderList(scene, camera, 0);
+        if (!renderList) return;
         const opaque = renderList.opaque;
 
         this.projectionScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -664,6 +690,28 @@ export class LODsManager {
                 this.updateLODs(scene, camera, object, desiredDensity);
             }
         }
+    }
+
+    private getRenderList(scene: Scene, camera: Camera, stack: number): Required<RenderListLike> | null {
+        const renderer = this.renderer as any;
+        let renderList: RenderListLike | null = null;
+        if (renderer.isWebGPURenderer === true) {
+            const renderLists = renderer._renderLists;
+            if (!renderLists) return null;
+            renderList = renderLists.get(scene, camera);
+        }
+        else if (renderer.isWebGLRenderer === true) {
+            const renderLists = renderer.renderLists;
+            if (!renderLists) return null;
+            renderList = renderLists.get(scene, stack);
+        }
+        if (!renderList) return null;
+        return {
+            opaque: renderList.opaque || [],
+            transparent: renderList.transparent || [],
+            transmissive: renderList.transmissive || renderList.transparentDoublePass || [],
+            transparentDoublePass: renderList.transparentDoublePass || [],
+        };
     }
 
     /** Update the LOD levels for the renderer. */

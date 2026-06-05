@@ -89,7 +89,8 @@ export function resolveUrl(source: string | undefined, uri: string): string {
  */
 export function isMobileDevice() {
     if (_ismobile !== undefined) return _ismobile;
-    _ismobile = /iPhone|iPad|iPod|Android|IEMobile/i.test(navigator.userAgent);
+    const userAgent = globalThis.navigator?.userAgent || "";
+    _ismobile = /iPhone|iPad|iPod|Android|IEMobile/i.test(userAgent);
     if (getParam("debugprogressive")) console.log("[glTF Progressive]: isMobileDevice", _ismobile);
     return _ismobile;
 }

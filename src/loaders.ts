@@ -186,9 +186,8 @@ function onLoad(this: GLTFLoader, ...args: ArgumentTypes<typeof GLTFLoader.proto
     const config = gltfLoaderConfigurations.get(this);
     let url_str = args[0];
 
-    const url = new URL(url_str, window.location.href);
-
-    if (url.hostname.endsWith("needle.tools")) {
+    const url = tryResolveUrl(url_str);
+    if (url?.hostname.endsWith("needle.tools")) {
 
         const progressive: boolean = config?.progressive !== undefined ? config.progressive : true;
         const usecase: string = config?.usecase ? config.usecase : "default";
@@ -208,3 +207,16 @@ function onLoad(this: GLTFLoader, ...args: ArgumentTypes<typeof GLTFLoader.proto
     return res;
 }
 GLTFLoader.prototype.load = onLoad;
+
+function tryResolveUrl(url: string | URL): URL | null {
+    try {
+        if (url instanceof URL) {
+            return url;
+        }
+        const base = globalThis.location?.href;
+        return base ? new URL(url, base) : new URL(url);
+    }
+    catch {
+        return null;
+    }
+}

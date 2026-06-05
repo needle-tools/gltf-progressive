@@ -91,7 +91,10 @@ class GLTFLoaderWorker {
             url = URL.createObjectURL(new Blob([url]));
         }
         else if (!url.startsWith("blob:") && !url.startsWith("http:") && !url.startsWith("https:")) {
-            url = new URL(url, window.location.href).toString();
+            const base = globalThis.location?.href;
+            if (base) {
+                url = new URL(url, base).toString();
+            }
         }
 
 
@@ -297,4 +300,3 @@ function cloneAttribute(attribute: BufferAttribute | InterleavedBufferAttribute)
     }
     return res;
 }
-

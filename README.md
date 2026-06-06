@@ -144,6 +144,36 @@ Create a new class extending `NEEDLE_progressive_plugin` and add your plugin by 
 ### Wait for LODs being loaded
 Call `lodsManager.awaitLoading(<opts?>)` to receive a promise that will resolve when all object LODs that start loading during the next frame have finished to update. Use the optional options parameter to e.g. wait for more frames.
 
+### Worker loading and device pixel ratio
+Progressive mesh and texture LOD files can be loaded in a worker by enabling the `gltf-progressive-worker` URL parameter.
+
+```txt
+https://example.test/viewer?gltf-progressive-worker
+```
+
+LOD selection uses the renderer pixel ratio. For matching results across main-thread, worker, or offscreen rendering, configure the renderer with the same device pixel ratio before calling `useNeedleProgressive` or `LODsManager.get`.
+
+```ts
+const renderer = new WebGLRenderer({ canvas });
+renderer.setPixelRatio(devicePixelRatio);
+
+useNeedleProgressive(gltfLoader, renderer);
+```
+
+In a worker or offscreen renderer, pass the display DPR from the main thread and apply it to the renderer there as well.
+
+```ts
+// main thread
+worker.postMessage({ type: "init", devicePixelRatio: window.devicePixelRatio });
+
+// worker / offscreen renderer
+const renderer = new WebGLRenderer({ canvas: offscreenCanvas });
+renderer.setPixelRatio(message.devicePixelRatio);
+useNeedleProgressive(gltfLoader, renderer);
+```
+
+If the renderer does not expose a pixel ratio, gltf-progressive falls back to `globalThis.devicePixelRatio` and then `1`.
+
 ### Global LOD level override
 
 ### LOD Manager settings
@@ -180,4 +210,3 @@ Read more about the [NEEDLE_progressive extension](./NEEDLE_progressive/README.m
 [Twitter](https://twitter.com/NeedleTools) • 
 [Discord](https://discord.needle.tools) • 
 [Forum](https://forum.needle.tools)
-

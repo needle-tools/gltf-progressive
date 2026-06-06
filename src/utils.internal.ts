@@ -49,8 +49,9 @@ export function isDebugMode() {
 }
 
 export function getParam(name: string): boolean | string {
-    if (typeof window === "undefined") return false;
-    const url = new URL(window.location.href);
+    const href = globalThis.location?.href;
+    if (!href) return false;
+    const url = new URL(href);
     const param = url.searchParams.get(name);
     if (param == null || param === "0" || param === "false") return false;
     if (param === "") return true;
@@ -101,8 +102,9 @@ let _ismobile: boolean | undefined;
  * @returns `true` if we are running in a development server (localhost or ip address).
  */
 export function isDevelopmentServer() {
-    if (typeof window === "undefined") return false;
-    const url = new URL(window.location.href);
+    const href = globalThis.location?.href;
+    if (!href) return false;
+    const url = new URL(href);
     const isLocalhostOrIpAddress = url.hostname === "localhost" || /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(url.hostname);
     const isDevelopment = url.hostname === "127.0.0.1" || isLocalhostOrIpAddress;
     return isDevelopment;
@@ -230,6 +232,10 @@ let rendererInfo: undefined | null | {
 export function detectGPUMemory(): number | undefined {
     if (rendererInfo !== undefined) {
         return rendererInfo?.estimatedMemory;
+    }
+    if (typeof document === "undefined") {
+        rendererInfo = null;
+        return undefined;
     }
 
     const canvas = document.createElement('canvas');

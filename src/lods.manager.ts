@@ -1025,7 +1025,8 @@ export class LODsManager {
                 if (this.context?.engine === "model-viewer") {
                     factor *= 1.5;
                 }
-                const screenSize = canvasHeight / window.devicePixelRatio;
+                const devicePixelRatio = this.renderer.getPixelRatio?.() || globalThis.devicePixelRatio || 1;
+                const screenSize = canvasHeight / devicePixelRatio;
                 const pixelSizeOnScreen = screenSize * factor;
                 let foundLod = false;
                 for (let i = texture_lods_minmax.lods.length - 1; i >= 0; i--) {

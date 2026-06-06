@@ -28,7 +28,7 @@ test("configured GLTFLoader can be used from a worker without window", async () 
         import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
         globalThis.self = globalThis;
-        globalThis.location = { href: "https://quicklook-compare.test/model-preview.worker.js" };
+        globalThis.location = { href: "https://gltf-progressive.test/worker.js?debugprogressive&gltf-progressive-worker" };
         globalThis.ProgressEvent ??= class ProgressEvent extends Event {
             constructor(type, init = {}) {
                 super(type);

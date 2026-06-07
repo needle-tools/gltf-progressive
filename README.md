@@ -26,7 +26,8 @@ useNeedleProgressive(gltf_loader, webgl_renderer)
 
 Examples are in the `/examples` directory. Live versions can be found in the links below.  
 
-To view them locally, run `npx serve examples` and open the printed URL.
+To view the static examples locally with the current checkout's runtime, run `npm run examples:serve` and open the printed URL.
+For the React Three Fiber example, run `npm install` and `npm run start` in `examples/react-three-fiber`.
 
 - [Loading comparisons](https://stackblitz.com/edit/gltf-progressive-comparison?file=package.json,index.html)
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
@@ -79,10 +80,10 @@ gltfLoader.load(url, gltf => {
     <script type="importmap">
     {
         "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/",
-            "three/examples/": "https://cdn.jsdelivr.net/npm/three@latest/examples/",
-            "@needle-tools/gltf-progressive": "https://cdn.jsdelivr.net/npm/@needle-tools/gltf-progressive/gltf-progressive.min.js"
+            "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/",
+            "three/examples/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/",
+            "@needle-tools/gltf-progressive": "https://cdn.jsdelivr.net/npm/@needle-tools/gltf-progressive@3.6.0-canary.5401de9/gltf-progressive.min.js"
         }
     }
     </script>
@@ -115,13 +116,13 @@ Full model-viewer example at: `examples/modelviewer.html`
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three/build/three.module.js",
-                "three/": "https://unpkg.com/three/"
+                "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+                "three/": "https://unpkg.com/three@0.184.0/"
             }
         }
     </script>
     <!-- Include gltf-progressive -->
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@needle-tools/gltf-progressive/gltf-progressive.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@needle-tools/gltf-progressive@3.6.0-canary.5401de9/gltf-progressive.min.js"></script>
     <!-- Include model-viewer -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 </head>

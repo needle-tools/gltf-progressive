@@ -1,5 +1,5 @@
 const DEFAULT_THREE_VERSION = "0.184.0";
-const DEFAULT_PROGRESSIVE_VERSION = "3.6.0-canary.027a4c9";
+const DEFAULT_PROGRESSIVE_VERSION = "3.6.0-canary.5401de9";
 
 export async function loadRuntime(options = {}) {
     const params = options.params || new URLSearchParams(options.search || globalThis.location?.search || "");

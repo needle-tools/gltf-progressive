@@ -1,30 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
-import { mkdir } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
 import { chromium } from "playwright";
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const cacheRoot = path.join(repoRoot, ".cache", "example-smoke");
-const runtimeBundlePath = path.join(cacheRoot, "runtime.js");
-
-const examples = [
-    { name: "webgpu", path: "/examples/webgpu/index.html", renderer: "webgpu" },
-    { name: "offscreen", path: "/examples/offscreen/index.html", renderer: "offscreen-webgl" },
-    { name: "worker-rendering", path: "/examples/worker-rendering/index.html", renderer: "worker-webgl" },
-];
+import { advancedExamples, buildExampleRuntimeBundle, startExampleServer } from "../../tools/example-server.mjs";
 
 test("advanced examples render with the bundled runtime", { timeout: 120_000 }, async () => {
-    await buildRuntimeBundle();
-    const server = await startServer();
+    await buildExampleRuntimeBundle();
+    const server = await startExampleServer();
     const browser = await launchBrowser();
     const baseUrl = `http://127.0.0.1:${server.port}`;
 
     try {
-        for (const example of examples) {
+        for (const example of advancedExamples) {
             await runExample(browser, baseUrl, example);
         }
     }
@@ -33,32 +19,6 @@ test("advanced examples render with the bundled runtime", { timeout: 120_000 }, 
         await new Promise(resolve => server.instance.close(resolve));
     }
 });
-
-async function buildRuntimeBundle() {
-    await mkdir(cacheRoot, { recursive: true });
-    await build({
-        stdin: {
-            sourcefile: "example-runtime-entry.js",
-            resolveDir: repoRoot,
-            loader: "js",
-            contents: `
-                import * as THREE from "three";
-                import * as THREE_WEBGPU from "three/webgpu";
-                export { THREE, THREE_WEBGPU };
-                export { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-                export { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-                export { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-                export { LODsManager, useNeedleProgressive } from "./src/index.ts";
-            `,
-        },
-        outfile: runtimeBundlePath,
-        bundle: true,
-        format: "esm",
-        platform: "browser",
-        sourcemap: false,
-        logLevel: "silent",
-    });
-}
 
 async function launchBrowser() {
     const launchOptions = {
@@ -97,40 +57,4 @@ async function runExample(browser, baseUrl, example) {
     assert.equal(state.loaded, true, `${example.name} did not load the glTF scene.`);
     assert.equal(state.renderer, example.renderer);
     assert.ok(state.frames > 0, `${example.name} did not render any frames.`);
-}
-
-function startServer() {
-    return new Promise(resolve => {
-        const instance = createServer(async (request, response) => {
-            try {
-                const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
-                const filePath = resolveRequestPath(requestUrl.pathname);
-                response.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-                response.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
-                response.setHeader("Content-Type", getMimeType(filePath));
-                response.end(await import("node:fs/promises").then(fs => fs.readFile(filePath)));
-            }
-            catch (error) {
-                response.statusCode = 404;
-                response.end(error?.message || String(error));
-            }
-        });
-        instance.listen(0, "127.0.0.1", () => {
-            resolve({ instance, port: instance.address().port });
-        });
-    });
-}
-
-function resolveRequestPath(pathname) {
-    if (pathname === "/__example-runtime.js") return runtimeBundlePath;
-    const normalizedPath = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.(\/|\\|$))+/, "");
-    return path.join(repoRoot, normalizedPath === "/" ? "examples/webgpu/index.html" : normalizedPath);
-}
-
-function getMimeType(filePath) {
-    if (filePath.endsWith(".html")) return "text/html";
-    if (filePath.endsWith(".js")) return "text/javascript";
-    if (filePath.endsWith(".json") || filePath.endsWith(".gltf")) return "application/json";
-    if (filePath.endsWith(".wasm")) return "application/wasm";
-    return "application/octet-stream";
 }

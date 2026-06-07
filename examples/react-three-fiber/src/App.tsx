@@ -2,37 +2,78 @@
 
 /* eslint-disable */
 import * as React from 'react'
+import * as THREE from 'three'
 import { Canvas, useThree } from '@react-three/fiber'
+import { OrbitControls, useGLTF } from '@react-three/drei'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 import { useNeedleProgressive } from '@needle-tools/gltf-progressive'
-import { Environment, OrbitControls, useGLTF } from '@react-three/drei'
 
-function MyModel() {
-  const { gl } = useThree()
-  const url = 'https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb'
-  const { scene } = useGLTF(url, false, false, (loader) => {
-    useNeedleProgressive(loader as any, gl as any);
+const modelUrl = 'https://cloud.needle.tools/-/assets/Z23hmXBZ21QnG-Yt9m7-world/the-forgotten-knight-baked.glb'
+
+function RoomEnvironmentSetup() {
+  const { gl, scene } = useThree()
+
+  React.useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl)
+    const environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    scene.environment = environment
+
+    return () => {
+      scene.environment = null
+      environment.dispose()
+      pmrem.dispose()
+    }
+  }, [gl, scene])
+
+  return null
+}
+
+function Model({ controlsRef }: { controlsRef: React.MutableRefObject<any> }) {
+  const { gl, camera } = useThree()
+  const { scene } = useGLTF(modelUrl, false, false, (loader) => {
+    useNeedleProgressive(loader as any, gl as any)
   })
+
+  React.useLayoutEffect(() => {
+    const box = new THREE.Box3().setFromObject(scene)
+    const size = box.getSize(new THREE.Vector3())
+    const center = box.getCenter(new THREE.Vector3())
+    const maxSize = Math.max(size.x, size.y, size.z, 0.0001)
+    const perspectiveCamera = camera as THREE.PerspectiveCamera
+    const distance = maxSize / (2 * Math.tan(THREE.MathUtils.degToRad(perspectiveCamera.fov) / 2)) * 1.55
+    const direction = new THREE.Vector3(0.45, 0.35, 1).normalize()
+
+    perspectiveCamera.position.copy(center).addScaledVector(direction, distance)
+    perspectiveCamera.near = Math.max(0.01, distance / 100)
+    perspectiveCamera.far = Math.max(100, distance * 100)
+    perspectiveCamera.updateProjectionMatrix()
+
+    const controls = controlsRef.current
+    if (controls) {
+      controls.target.copy(center)
+      controls.minDistance = distance * 0.1
+      controls.maxDistance = distance * 10
+      controls.update()
+    }
+  }, [camera, controlsRef, scene])
+
   return <primitive object={scene} />
 }
 
-
 export default function App() {
+  const controlsRef = React.useRef<any>(null)
+
   return (
     <Canvas
-      frameloop="demand"
-      camera={{ position: [25, 15, 25] }}>
-      <OrbitControls target={[0 , 10, 0]} />
-      <ambientLight intensity={1} />
-      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-      <pointLight position={[-10, -10, -10]} />
-      <Environment
-        files="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/evening_road_01_2k.hdr"
-      // ground={{ height: 5, radius: 40, scale: 10 }}
-      />
-      <MyModel />
+      camera={{ position: [0.5, 1.3, 2], fov: 60, near: 0.01, far: 200 }}>
+      <RoomEnvironmentSetup />
+      <gridHelper args={[50, 50, 0x444444, 0x666666]} />
+      <directionalLight position={[-50, 20, 50]} intensity={1} />
+      <OrbitControls ref={controlsRef} enableDamping dampingFactor={0.08} target={[0, 0.5, 0]} />
+      <React.Suspense fallback={null}>
+        <Model controlsRef={controlsRef} />
+      </React.Suspense>
     </Canvas>
   )
 }
-
-

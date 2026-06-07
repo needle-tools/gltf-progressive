@@ -43,6 +43,7 @@
     "sidecar:build": "vite build --config tools/sidecar/vite.config.mjs",
     "sidecar:test": "node --test tests/sidecar/*.test.mjs",
     "compat:cache": "node tools/cache-three-compat.mjs",
+    "test:examples": "node --test tests/examples/*.test.mjs",
     "test:compat:browser": "vitest --config vitest.compat.config.ts --run",
     "test:compat:three": "node tools/run-three-compat.mjs",
     "test:tsc": "tsc --noEmit",

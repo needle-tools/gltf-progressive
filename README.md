@@ -26,8 +26,13 @@ useNeedleProgressive(gltf_loader, webgl_renderer)
 
 Examples are in the `/examples` directory. Live versions can be found in the links below.  
 
+To view them locally, run `npx serve examples` and open the printed URL.
+
 - [Loading comparisons](https://stackblitz.com/edit/gltf-progressive-comparison?file=package.json,index.html)
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
+- `examples/webgpu` - WebGPU renderer
+- `examples/offscreen` - main-thread OffscreenCanvas rendering
+- `examples/worker-rendering` - OffscreenCanvas rendering in a Worker
 - [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
 - \<model-viewer\> 
   - [single \<model-viewer> element](https://engine.needle.tools/demos/gltf-progressive/modelviewer) 

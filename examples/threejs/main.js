@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { useNeedleProgressive, getRaycastMesh, useRaycastMeshes } from "@needle-tools/gltf-progressive";
+import { fitObjectToView, setupRoomEnvironment } from "../shared/example-utils.js";
 import { Pane } from 'https://cdn.jsdelivr.net/npm/tweakpane@4.0.3/dist/tweakpane.min.js';
 
 
@@ -34,6 +35,8 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(-50, 20, 50);
 scene.add(directionalLight);
 
+setupRoomEnvironment(THREE, RoomEnvironment, renderer, scene);
+
 
 // Animate the scene
 function animate() {
@@ -42,19 +45,6 @@ function animate() {
     renderer.render(scene, camera);
 }
 animate();
-
-const environmentTextureUrl = "https://dl.polyhaven.org/file/ph-assets/HDRIs/exr/1k/studio_small_09_1k.exr";
-const pmremGenerator = new THREE.PMREMGenerator(renderer);
-pmremGenerator.compileEquirectangularShader();
-new EXRLoader().load(environmentTextureUrl, texture => {
-    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-    scene.environment = envMap;
-    texture.dispose();
-    pmremGenerator.dispose();
-});
-
-
-
 
 const modelUrls = [
     "https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb",
@@ -100,15 +90,7 @@ function loadScene() {
         currentScene?.removeFromParent();
         currentScene = gltf.scene;
         scene.add(gltf.scene)
-        gltf.scene.position.y += .01;
-
-        // the church is huge - scaling it down so we don't have a big difference between the models
-        if (url.includes("church")) {
-            gltf.scene.scale.multiplyScalar(.1);
-        }
-        else if (url.includes("cyberpunk")) {
-            gltf.scene.scale.multiplyScalar(15);
-        }
+        fitObjectToView(THREE, camera, gltf.scene, orbit);
 
         if (gltf.animations?.length) {
             console.log("Playing animation", gltf.animations)

@@ -14,7 +14,7 @@ export default defineConfig(async (command) => {
         plugins: [
             react(),
             basicSsl(),
-            viteCompression({ deleteOriginFile: true }),
+            viteCompression({ deleteOriginFile: false }),
         ],
 
         server: {

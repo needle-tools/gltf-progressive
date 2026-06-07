@@ -1,0 +1,27 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #20242a;
+    color: #f5f7fa;
+    font-family: system-ui, sans-serif;
+}
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
+
+.example-status {
+    position: fixed;
+    left: 12px;
+    top: 12px;
+    z-index: 10;
+    padding: 6px 8px;
+    background: rgba(18, 22, 28, 0.78);
+    color: #f5f7fa;
+    font-size: 12px;
+    line-height: 1.3;
+}

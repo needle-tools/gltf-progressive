@@ -90,11 +90,11 @@ async function init(message) {
     const firstLoad = await loadScene(sceneIndex);
     self.postMessage({ type: "ready", renderer: rendererLabel, camera: serializeCamera(camera), fit: firstLoad?.fit });
 
-    const requestFrame = self.requestAnimationFrame || (callback => setTimeout(() => callback(performance.now()), 16));
+    const requestFrame = callback => setTimeout(() => callback(performance.now()), 16);
     function render() {
         frames += 1;
         renderer.render(scene, camera);
-        if (frames % 10 === 0) self.postMessage({ type: "frame", frames });
+        if (frames === 1 || frames % 10 === 0) self.postMessage({ type: "frame", frames });
         requestFrame(render);
     }
     render();

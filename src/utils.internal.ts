@@ -130,7 +130,14 @@ export class PromiseQueue<T = any> {
 
     constructor(public maxConcurrent: number, opts: { debug?: boolean } = {}) {
         this.debug = opts.debug ?? false;
-        if (typeof window !== "undefined") window.requestAnimationFrame(this.tick);
+        // Dedicated workers can have requestAnimationFrame when they are owned by a window.
+        // Other worker-like scopes do not, so keep the frame-based tick when available and fall back to timers otherwise.
+        if (typeof globalThis.requestAnimationFrame === "function") {
+            globalThis.requestAnimationFrame(this.tick);
+        }
+        else {
+            setTimeout(this.tick, 0);
+        }
     }
 
     private tick = () => {

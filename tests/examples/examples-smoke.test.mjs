@@ -64,6 +64,7 @@ async function runExample(browser, baseUrl, example) {
         await page.waitForFunction(() => (globalThis.__GLTF_PROGRESSIVE_EXAMPLE__?.frames || 0) > 0, undefined, { timeout: 10_000 });
         await page.waitForFunction(() => (globalThis.__GLTF_PROGRESSIVE_EXAMPLE__?.progressiveObjects || 0) > 0, undefined, { timeout: 20_000 });
         await page.waitForFunction(() => (globalThis.__GLTF_PROGRESSIVE_EXAMPLE__?.lodChanges || 0) > 0, undefined, { timeout: 45_000 });
+        await page.waitForFunction(() => globalThis.__GLTF_PROGRESSIVE_EXAMPLE__?.lodChangeTypes?.includes("mesh"), undefined, { timeout: 45_000 });
         await page.getByRole("button", { name: "Change scene" }).click();
         await page.waitForFunction(() => (globalThis.__GLTF_PROGRESSIVE_EXAMPLE__?.sceneLoads || 0) >= 2, undefined, { timeout: 45_000 });
     }
@@ -81,6 +82,7 @@ async function runExample(browser, baseUrl, example) {
     assert.ok(state.frames > 0, `${example.name} did not render any frames.`);
     assert.ok(state.progressiveObjects > 0, `${example.name} did not expose progressive LOD metadata.`);
     assert.ok(state.lodChanges > 0, `${example.name} did not apply any progressive LOD changes.`);
+    assert.ok(state.lodChangeTypes.includes("mesh"), `${example.name} did not apply a progressive mesh LOD change.`);
     assert.ok(state.sceneLoads >= 2, `${example.name} did not load a second scene after pressing Change scene.`);
 }
 

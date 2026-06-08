@@ -8,8 +8,8 @@ import { OrbitControls, useGLTF } from '@react-three/drei'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 import { useNeedleProgressive } from '@needle-tools/gltf-progressive'
-
-const modelUrl = 'https://cloud.needle.tools/-/assets/Z23hmXBZ21QnG-Yt9m7-world/the-forgotten-knight-baked.glb'
+// @ts-ignore shared plain JS example helpers
+import { MODEL_URLS } from '../../shared/example-utils.js'
 
 function RoomEnvironmentSetup() {
   const { gl, scene } = useThree()
@@ -29,9 +29,9 @@ function RoomEnvironmentSetup() {
   return null
 }
 
-function Model({ controlsRef }: { controlsRef: React.MutableRefObject<any> }) {
+function Model({ controlsRef, url }: { controlsRef: React.MutableRefObject<any>, url: string }) {
   const { gl, camera } = useThree()
-  const { scene } = useGLTF(modelUrl, false, false, (loader) => {
+  const { scene } = useGLTF(url, false, false, (loader) => {
     useNeedleProgressive(loader as any, gl as any)
   })
 
@@ -63,17 +63,31 @@ function Model({ controlsRef }: { controlsRef: React.MutableRefObject<any> }) {
 
 export default function App() {
   const controlsRef = React.useRef<any>(null)
+  const [sceneIndex, setSceneIndex] = React.useState(0)
+  const modelUrl = MODEL_URLS[sceneIndex % MODEL_URLS.length]
+
+  React.useEffect(() => {
+    ;(globalThis as any).__GLTF_PROGRESSIVE_R3F_EXAMPLE__ = {
+      currentUrl: modelUrl,
+      sceneIndex,
+    }
+  }, [modelUrl, sceneIndex])
 
   return (
-    <Canvas
-      camera={{ position: [0.5, 1.3, 2], fov: 60, near: 0.01, far: 200 }}>
-      <RoomEnvironmentSetup />
-      <gridHelper args={[50, 50, 0x444444, 0x666666]} />
-      <directionalLight position={[-50, 20, 50]} intensity={1} />
-      <OrbitControls ref={controlsRef} enableDamping dampingFactor={0.08} target={[0, 0.5, 0]} />
-      <React.Suspense fallback={null}>
-        <Model controlsRef={controlsRef} />
-      </React.Suspense>
-    </Canvas>
+    <>
+      <div className="example-toolbar">
+        <button type="button" onClick={() => setSceneIndex((sceneIndex + 1) % MODEL_URLS.length)}>Change scene</button>
+      </div>
+      <Canvas
+        camera={{ position: [0.5, 1.3, 2], fov: 60, near: 0.01, far: 200 }}>
+        <RoomEnvironmentSetup />
+        <gridHelper args={[50, 50, 0x444444, 0x666666]} />
+        <directionalLight position={[-50, 20, 50]} intensity={1} />
+        <OrbitControls ref={controlsRef} enableDamping dampingFactor={0.08} target={[0, 0.5, 0]} />
+        <React.Suspense fallback={null}>
+          <Model key={modelUrl} controlsRef={controlsRef} url={modelUrl} />
+        </React.Suspense>
+      </Canvas>
+    </>
   )
 }

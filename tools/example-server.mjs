@@ -30,7 +30,8 @@ const examplesIndexHtml = `<!doctype html>
             <li><a href="/examples/threejs/index.html">three.js</a></li>
             <li><a href="/examples/webgpu/index.html?runtime=/__example-runtime.js">WebGPU</a></li>
             <li><a href="/examples/offscreen/index.html?runtime=/__example-runtime.js">OffscreenCanvas</a></li>
-            <li><a href="/examples/worker-rendering/index.html?runtime=/__example-runtime.js">Worker rendering</a></li>
+            <li><a href="/examples/worker-rendering/index.html?runtime=/__example-runtime.js">Worker WebGL rendering</a></li>
+            <li><a href="/examples/worker-rendering/index.html?runtime=/__example-runtime.js&renderer=webgpu">Worker WebGPU rendering</a></li>
             <li><a href="/examples/react-three-fiber/">React Three Fiber</a></li>
             <li><a href="/examples/modelviewer.html">model-viewer</a></li>
             <li><a href="/examples/modelviewer-multiple.html">model-viewer multiple</a></li>
@@ -43,6 +44,7 @@ export const advancedExamples = [
     { name: "webgpu", path: "/examples/webgpu/index.html", renderer: "webgpu" },
     { name: "offscreen", path: "/examples/offscreen/index.html", renderer: "offscreen-webgl" },
     { name: "worker-rendering", path: "/examples/worker-rendering/index.html", renderer: "worker-webgl" },
+    { name: "worker-webgpu-rendering", path: "/examples/worker-rendering/index.html?renderer=webgpu", renderer: "worker-webgpu" },
 ];
 
 export async function buildExampleRuntimeBundle() {
@@ -59,7 +61,7 @@ export async function buildExampleRuntimeBundle() {
                 export { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
                 export { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
                 export { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-                export { LODsManager, useNeedleProgressive } from "./src/index.ts";
+                export { LODsManager, NEEDLE_progressive, useNeedleProgressive } from "./src/index.ts";
             `,
         },
         outfile: runtimeBundlePath,

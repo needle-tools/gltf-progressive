@@ -3,6 +3,7 @@ import {
     applyCameraState,
     createExampleState,
     createOrbitControls,
+    createSceneChangeButton,
     markError,
     markReady,
     serializeCamera,
@@ -10,6 +11,8 @@ import {
 } from "../shared/example-utils.js";
 
 const state = createExampleState("worker-rendering");
+const params = new URLSearchParams(location.search);
+const rendererMode = params.get("renderer") === "webgpu" ? "webgpu" : "webgl";
 
 try {
     if (!globalThis.OffscreenCanvas) throw new Error("OffscreenCanvas is not available in this browser.");
@@ -36,8 +39,19 @@ try {
             sendCamera();
             markReady(state, message.renderer || "worker-webgl");
         }
+        else if (message.type === "scene-loaded") {
+            state.loaded = true;
+            state.currentUrl = message.url || "";
+            state.sceneIndex = message.sceneIndex || 0;
+            state.sceneLoads = message.sceneLoads || state.sceneLoads + 1;
+            state.progressiveObjects = message.progressiveObjects || 0;
+        }
         else if (message.type === "frame") {
             state.frames = message.frames;
+        }
+        else if (message.type === "lod-change") {
+            state.lodChanges += 1;
+            state.lodChangeTypes.push(message.lodType);
         }
         else if (message.type === "error") {
             markError(state, message.message || "Worker rendering failed.");
@@ -67,6 +81,9 @@ try {
     }
 
     controls.addEventListener("change", sendCamera);
+    createSceneChangeButton(() => {
+        worker.postMessage({ type: "change-scene" });
+    });
 
     function updateControls() {
         controls.update();
@@ -82,9 +99,10 @@ try {
         pixelRatio: window.devicePixelRatio || 1,
         camera: serializeCamera(camera),
         search: location.search,
+        renderer: rendererMode,
     }, [offscreenCanvas]);
     window.addEventListener("resize", postResize);
-    updateStatus("worker-webgl");
+    updateStatus(rendererMode === "webgpu" ? "worker-webgpu" : "worker-webgl");
 }
 catch (error) {
     markError(state, error);

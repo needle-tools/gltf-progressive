@@ -1,4 +1,13 @@
-export const DEFAULT_MODEL_URL = "https://cloud.needle.tools/-/assets/Z23hmXBZ21QnG-Yt9m7-world/the-forgotten-knight-baked.glb";
+export const MODEL_URLS = [
+    "https://engine.needle.tools/demos/gltf-progressive/assets/church/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/putti gruppe/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/cyberpunk/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/robot/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/vase/model.glb",
+    "https://engine.needle.tools/demos/gltf-progressive/assets/jupiter_und_ganymed/model.glb",
+];
+
+export const DEFAULT_MODEL_URL = MODEL_URLS[0];
 
 export function createExampleState(label) {
     const state = {
@@ -9,6 +18,12 @@ export function createExampleState(label) {
         frames: 0,
         loaded: false,
         renderer: "",
+        currentUrl: "",
+        sceneIndex: 0,
+        sceneLoads: 0,
+        progressiveObjects: 0,
+        lodChanges: 0,
+        lodChangeTypes: [],
     };
     globalThis.__GLTF_PROGRESSIVE_EXAMPLE__ = state;
 
@@ -43,11 +58,68 @@ export function markError(state, error) {
     updateStatus(message);
 }
 
-export function getModelUrl(params = new URLSearchParams(globalThis.location?.search || "")) {
+export function getModelUrl(params = new URLSearchParams(globalThis.location?.search || ""), sceneIndex = 0) {
     const asset = params.get("asset");
     if (asset === "minimal") return createMinimalGltfUrl();
     if (asset) return new URL(asset, globalThis.location?.href).href;
-    return DEFAULT_MODEL_URL;
+    return MODEL_URLS[normalizeSceneIndex(sceneIndex)];
+}
+
+export function normalizeSceneIndex(sceneIndex) {
+    return ((sceneIndex % MODEL_URLS.length) + MODEL_URLS.length) % MODEL_URLS.length;
+}
+
+export function getInitialSceneIndex(params = new URLSearchParams(globalThis.location?.search || "")) {
+    const scene = Number(params.get("scene"));
+    return Number.isFinite(scene) ? normalizeSceneIndex(scene) : 0;
+}
+
+export function createSceneChangeButton(onChange) {
+    const document = globalThis.document;
+    if (!document) return null;
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "example-toolbar";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Change scene";
+    button.addEventListener("click", () => onChange());
+    toolbar.append(button);
+    document.body.append(toolbar);
+    return button;
+}
+
+export function markSceneLoading(state, sceneIndex, url) {
+    state.sceneIndex = normalizeSceneIndex(sceneIndex);
+    state.currentUrl = url;
+    updateStatus("loading");
+}
+
+export function markSceneLoaded(state, runtime, root) {
+    state.loaded = true;
+    state.sceneLoads += 1;
+    state.progressiveObjects = countProgressiveObjects(runtime, root);
+}
+
+export function trackLODChanges(lodsManager, state, notify) {
+    return lodsManager.addEventListener?.("changed", event => {
+        state.lodChanges += 1;
+        state.lodChangeTypes.push(event.type);
+        if (notify) notify(event);
+    });
+}
+
+export function countProgressiveObjects(runtime, root) {
+    const progressive = runtime.NEEDLE_progressive;
+    if (!progressive || !root) return 0;
+
+    let count = 0;
+    root.traverse?.(object => {
+        if (object?.isMesh && progressive.hasLODLevelAvailable(object)) count += 1;
+        const material = object?.material;
+        if (material && progressive.hasLODLevelAvailable(material)) count += 1;
+    });
+    return count;
 }
 
 export function createMinimalGltfUrl() {

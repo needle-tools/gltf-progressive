@@ -29,5 +29,6 @@ export async function loadRuntime(options = {}) {
         RoomEnvironment: roomEnvironmentModule.RoomEnvironment,
         useNeedleProgressive: progressiveModule.useNeedleProgressive,
         LODsManager: progressiveModule.LODsManager,
+        NEEDLE_progressive: progressiveModule.NEEDLE_progressive,
     };
 }

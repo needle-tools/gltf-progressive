@@ -3,16 +3,23 @@ import {
     addLoadedScene,
     createOrbitControls,
     createExampleState,
+    createSceneChangeButton,
+    getInitialSceneIndex,
     getModelUrl,
     markError,
     markReady,
+    markSceneLoaded,
+    markSceneLoading,
+    normalizeSceneIndex,
     resizeRenderer,
     setupScene,
     setupRoomEnvironment,
+    trackLODChanges,
     updateStatus,
 } from "../shared/example-utils.js";
 
 const state = createExampleState("webgpu");
+const params = new URLSearchParams(location.search);
 
 try {
     const runtime = await loadRuntime();
@@ -32,20 +39,45 @@ try {
     });
     const controls = createOrbitControls(runtime.OrbitControls, camera, canvas);
 
-    const loader = new runtime.GLTFLoader();
-    runtime.useNeedleProgressive(loader, renderer);
+    let root = null;
+    let sceneIndex = getInitialSceneIndex(params);
+    let loadToken = 0;
+    let rendererLabel = "";
 
-    const root = await new Promise((resolve, reject) => {
-        loader.load(getModelUrl(), gltf => resolve(addLoadedScene(THREE, scene, gltf, { camera, controls })), undefined, reject);
-    });
+    const firstLoader = new runtime.GLTFLoader();
+    const lodsManager = runtime.useNeedleProgressive(firstLoader, renderer);
+    trackLODChanges(lodsManager, state);
 
     window.addEventListener("resize", () => {
         resizeRenderer(renderer, camera, window.innerWidth, window.innerHeight, window.devicePixelRatio);
     });
 
+    async function loadScene(nextIndex) {
+        const token = ++loadToken;
+        sceneIndex = normalizeSceneIndex(nextIndex);
+        const url = getModelUrl(params, sceneIndex);
+        markSceneLoading(state, sceneIndex, url);
+
+        const loader = token === 1 ? firstLoader : new runtime.GLTFLoader();
+        if (token !== 1) runtime.useNeedleProgressive(loader, renderer);
+
+        const nextRoot = await new Promise((resolve, reject) => {
+            loader.load(url, gltf => resolve(addLoadedScene(THREE, scene, gltf, { camera, controls })), undefined, reject);
+        });
+
+        if (token !== loadToken) {
+            nextRoot.removeFromParent();
+            return;
+        }
+
+        root?.removeFromParent();
+        root = nextRoot;
+        markSceneLoaded(state, runtime, root);
+        if (rendererLabel) markReady(state, rendererLabel);
+    }
+
     function render() {
         state.frames += 1;
-        root.rotation.y += 0.01;
         controls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(render);
@@ -53,7 +85,10 @@ try {
 
     const backend = getBackendType(renderer);
     if (backend !== "webgpu") throw new Error(`Expected WebGPU backend, got ${backend}.`);
-    markReady(state, backend);
+    rendererLabel = backend;
+    createSceneChangeButton(() => loadScene(sceneIndex + 1).catch(error => markError(state, error)));
+    await loadScene(sceneIndex);
+    markReady(state, rendererLabel);
     render();
 }
 catch (error) {

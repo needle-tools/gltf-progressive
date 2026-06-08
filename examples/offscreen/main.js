@@ -3,15 +3,22 @@ import {
     addLoadedScene,
     createOrbitControls,
     createExampleState,
+    createSceneChangeButton,
+    getInitialSceneIndex,
     getModelUrl,
     markError,
     markReady,
+    markSceneLoaded,
+    markSceneLoading,
+    normalizeSceneIndex,
     resizeRenderer,
     setupScene,
     setupRoomEnvironment,
+    trackLODChanges,
 } from "../shared/example-utils.js";
 
 const state = createExampleState("offscreen");
+const params = new URLSearchParams(location.search);
 
 try {
     if (!globalThis.OffscreenCanvas) throw new Error("OffscreenCanvas is not available in this browser.");
@@ -30,6 +37,9 @@ try {
     const { scene, camera } = setupScene(THREE, width, height);
     setupRoomEnvironment(THREE, runtime.RoomEnvironment, renderer, scene);
     const controls = createOrbitControls(runtime.OrbitControls, camera, visibleCanvas);
+    let root = null;
+    let sceneIndex = getInitialSceneIndex(params);
+    let loadToken = 0;
 
     function resize() {
         width = window.innerWidth;
@@ -41,24 +51,46 @@ try {
     }
     resize();
 
-    const loader = new runtime.GLTFLoader();
-    runtime.useNeedleProgressive(loader, renderer);
-    const root = await new Promise((resolve, reject) => {
-        loader.load(getModelUrl(), gltf => resolve(addLoadedScene(THREE, scene, gltf, { camera, controls })), undefined, reject);
-    });
+    const firstLoader = new runtime.GLTFLoader();
+    const lodsManager = runtime.useNeedleProgressive(firstLoader, renderer);
+    trackLODChanges(lodsManager, state);
+
+    async function loadScene(nextIndex) {
+        const token = ++loadToken;
+        sceneIndex = normalizeSceneIndex(nextIndex);
+        const url = getModelUrl(params, sceneIndex);
+        markSceneLoading(state, sceneIndex, url);
+
+        const loader = token === 1 ? firstLoader : new runtime.GLTFLoader();
+        if (token !== 1) runtime.useNeedleProgressive(loader, renderer);
+
+        const nextRoot = await new Promise((resolve, reject) => {
+            loader.load(url, gltf => resolve(addLoadedScene(THREE, scene, gltf, { camera, controls })), undefined, reject);
+        });
+
+        if (token !== loadToken) {
+            nextRoot.removeFromParent();
+            return;
+        }
+
+        root?.removeFromParent();
+        root = nextRoot;
+        markSceneLoaded(state, runtime, root);
+        markReady(state, "offscreen-webgl");
+    }
 
     window.addEventListener("resize", resize);
+    createSceneChangeButton(() => loadScene(sceneIndex + 1).catch(error => markError(state, error)));
 
     function render() {
         state.frames += 1;
-        root.rotation.y += 0.01;
         controls.update();
         renderer.render(scene, camera);
         visibleContext.transferFromImageBitmap(offscreenCanvas.transferToImageBitmap());
         requestAnimationFrame(render);
     }
 
-    markReady(state, "offscreen-webgl");
+    await loadScene(sceneIndex);
     render();
 }
 catch (error) {

@@ -1,18 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
-import { advancedExamples, buildExampleRuntimeBundle, startExampleServer } from "../../tools/example-server.mjs";
+import {
+    advancedExamples,
+    buildExampleRuntimeBundle,
+    buildReactThreeFiberExample,
+    reactThreeFiberExample,
+    startExampleServer,
+} from "../../tools/example-server.mjs";
 
 test("advanced examples render with the bundled runtime", { timeout: 120_000 }, async () => {
     await buildExampleRuntimeBundle();
+    await buildReactThreeFiberExample();
     const server = await startExampleServer();
     const browser = await launchBrowser();
     const baseUrl = `http://127.0.0.1:${server.port}`;
 
     try {
+        await runExamplesIndex(browser, baseUrl);
         for (const example of advancedExamples) {
             await runExample(browser, baseUrl, example);
         }
+        await runReactThreeFiberExample(browser, baseUrl);
     }
     finally {
         await browser.close();
@@ -29,6 +38,15 @@ async function launchBrowser() {
         launchOptions.channel = process.env.NEEDLE_BROWSER_CHANNEL;
     }
     return await chromium.launch(launchOptions);
+}
+
+async function runExamplesIndex(browser, baseUrl) {
+    const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    await page.goto(`${baseUrl}/examples/`, { waitUntil: "domcontentloaded" });
+    const linkCount = await page.locator("main a").count();
+    await page.close();
+
+    assert.ok(linkCount >= 7, "examples index should link to the available examples.");
 }
 
 async function runExample(browser, baseUrl, example) {
@@ -57,4 +75,28 @@ async function runExample(browser, baseUrl, example) {
     assert.equal(state.loaded, true, `${example.name} did not load the glTF scene.`);
     assert.equal(state.renderer, example.renderer);
     assert.ok(state.frames > 0, `${example.name} did not render any frames.`);
+}
+
+async function runReactThreeFiberExample(browser, baseUrl) {
+    const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    const diagnostics = [];
+    page.on("console", message => {
+        if (message.type() === "error") diagnostics.push(`${message.type()}: ${message.text()}`);
+    });
+    page.on("pageerror", error => diagnostics.push(error.stack || error.message));
+    page.on("requestfailed", request => diagnostics.push(`request failed: ${request.url()} ${request.failure()?.errorText || ""}`));
+
+    await page.goto(`${baseUrl}${reactThreeFiberExample.path}`, { waitUntil: "domcontentloaded" });
+    await page.locator("canvas").waitFor({ timeout: 30_000 });
+    await page.waitForLoadState("networkidle", { timeout: 45_000 });
+    await page.waitForTimeout(1_000);
+
+    const canvasSize = await page.locator("canvas").evaluate(canvas => ({
+        width: canvas.clientWidth,
+        height: canvas.clientHeight,
+    }));
+    await page.close();
+
+    assert.deepEqual(diagnostics, [], `${reactThreeFiberExample.name} failed:\n${diagnostics.join("\n")}`);
+    assert.ok(canvasSize.width > 0 && canvasSize.height > 0, `${reactThreeFiberExample.name} did not create a visible canvas.`);
 }

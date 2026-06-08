@@ -26,8 +26,7 @@ useNeedleProgressive(gltf_loader, webgl_renderer)
 
 Examples are in the `/examples` directory. Live versions can be found in the links below.  
 
-To view the static examples locally with the current checkout's runtime, run `npm run examples:serve` and open the printed URL.
-For the React Three Fiber example, run `npm install` and `npm run start` in `examples/react-three-fiber`.
+To view the examples locally with the current checkout's runtime, run `npm run examples:serve` and open the printed examples index URL.
 
 - [Loading comparisons](https://stackblitz.com/edit/gltf-progressive-comparison?file=package.json,index.html)
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations

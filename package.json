@@ -80,7 +80,7 @@
     "@needle-tools/engine": "^5.1.0-alpha.6",
     "@needle-tools/three-test-matrix": "^0.1.0",
     "@stylistic/eslint-plugin-ts": "^1.5.4",
-    "@types/three": "0.183.1",
+    "@types/three": "0.169.0",
     "@typescript-eslint/eslint-plugin": "^6.2.0",
     "@typescript-eslint/parser": "^6.2.0",
     "@vitest/browser-playwright": "^4.1.8",

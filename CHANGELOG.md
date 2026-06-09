@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [3.6.0-beta.1] - 2026-06-09
+- Fix: texture LOD selection regressed for meshes that only have texture LODs (no mesh LODs); screen coverage is now computed unconditionally so texture LODs update with camera distance again.
+
 ## [3.6.0-alpha.3] - 2026-05-27
 - Fix: stale progressive mesh and texture LOD requests no longer overwrite newer explicit targets, while still allowing useful intermediate LODs to apply during rapid target changes.
 - Fix: progressive worker/debug imports no longer assume `window` exists, and texture LOD selection now uses the renderer pixel ratio so main-thread and worker/offscreen renderers can make matching LOD decisions.

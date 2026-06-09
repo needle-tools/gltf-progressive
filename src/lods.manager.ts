@@ -152,7 +152,10 @@ export function calculateMeshLODLevel(options: MeshLODSelectionOptions): MeshLOD
     result.screenCoverage = 0;
     result.screenspaceVolume.set(0, 0, 0);
     result.centrality = 1;
-    if (!meshLods?.length) return result;
+    // Note: we intentionally do NOT early-return when there are no mesh LODs.
+    // The screen coverage / screenspace volume computed below is also consumed by
+    // the texture LOD selection, which must keep working for meshes that only have
+    // texture LODs (no mesh LODs). Only the mesh LOD-level selection loop is skipped.
 
     let boundingBox = options.boundingBox ?? geometry.boundingBox;
     if (!boundingBox) {
@@ -241,18 +244,20 @@ export function calculateMeshLODLevel(options: MeshLODSelectionOptions): MeshLOD
         debugDrawLine(_meshLODCorner2, _meshLODCorner3, 0x0000ff);
     }
 
-    for (let i = 0; i < meshLods.length; i++) {
-        const lod = meshLods[i];
-        const density = lod.densities?.[primitiveIndex] || lod.density || .00001;
+    if (meshLods?.length) {
+        for (let i = 0; i < meshLods.length; i++) {
+            const lod = meshLods[i];
+            const density = lod.densities?.[primitiveIndex] || lod.density || .00001;
 
-        if (primitiveIndex > 0 && warnMissingPrimitiveDensities && isDevelopmentServer() && !lod.densities && !globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"]) {
-            globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"] = true;
-            console.warn(`[Needle Progressive] Detected usage of mesh without primitive densities. This might cause incorrect LOD level selection: Consider re-optimizing your model by updating your Needle Integration, Needle glTF Pipeline or running optimization again on Needle Cloud.`);
-        }
+            if (primitiveIndex > 0 && warnMissingPrimitiveDensities && isDevelopmentServer() && !lod.densities && !globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"]) {
+                globalThis["NEEDLE:MISSING_LOD_PRIMITIVE_DENSITIES"] = true;
+                console.warn(`[Needle Progressive] Detected usage of mesh without primitive densities. This might cause incorrect LOD level selection: Consider re-optimizing your model by updating your Needle Integration, Needle glTF Pipeline or running optimization again on Needle Cloud.`);
+            }
 
-        if (density / screenCoverage < desiredDensity) {
-            result.level = i;
-            break;
+            if (density / screenCoverage < desiredDensity) {
+                result.level = i;
+                break;
+            }
         }
     }
 

@@ -30,15 +30,15 @@ To view the examples locally with the current checkout's runtime, run `npm run e
 
 - [Loading comparisons](https://stackblitz.com/edit/gltf-progressive-comparison?file=package.json,index.html)
 - [Vanilla three.js](https://engine.needle.tools/demos/gltf-progressive/threejs/) - multiple models and animations
-- `examples/webgpu` - WebGPU renderer
-- `examples/offscreen` - main-thread OffscreenCanvas rendering
-- `examples/worker-rendering` - OffscreenCanvas rendering in a Worker
 - [React Three Fiber](https://engine.needle.tools/demos/gltf-progressive/r3f/)
 - \<model-viewer\> 
   - [single \<model-viewer> element](https://engine.needle.tools/demos/gltf-progressive/modelviewer) 
   - [multiple \<model-viewer> elements](https://engine.needle.tools/demos/gltf-progressive/modelviewer-multiple)
 - [Needle Engine](https://stackblitz.com/edit/needle-engine-gltf-progressive?file=src%2Fmain.ts)
 - [Needle Cloud](https://cloud.needle.tools/view?file=Z23hmXBZN45qJ-ZN45qJ-world)
+- `examples/webgpu` - WebGPU renderer
+- `examples/offscreen` - main-thread OffscreenCanvas rendering
+- `examples/worker-rendering` - OffscreenCanvas rendering in a Worker
 
 **Interactive Examples**:
 - [Stackblitz](https://stackblitz.com/@marwie/collections/gltf-progressive)
@@ -90,7 +90,7 @@ gltfLoader.load(url, gltf => {
 ```
 
 
-## react three fiber
+## React Three Fiber
 
 Full react-three-fiber example at: `examples/react-three-fiber`
 
@@ -105,7 +105,7 @@ function MyModel() {
 }
 ```
 
-## google \<model-viewer\>
+## Google \<model-viewer\>
 
 Full model-viewer example at: `examples/modelviewer.html`
 
@@ -134,7 +134,7 @@ Full model-viewer example at: `examples/modelviewer.html`
 
 ## Needle Engine
 
-[Needle Engine](https://needle.tools) natively supports progressive loading of these glTF files! See [docs.needle.tools](https://docs.needle.tools) for more information. 
+[Needle Engine](https://needle.tools) natively supports progressive loading of these glTF files! See [docs.needle.tools/gltf-progressive](https://engine.needle.tools/docs/gltf-progressive/) for more information. 
 
 
 # How can I generate assets for progressive loading
@@ -209,6 +209,8 @@ Call `getRaycastMesh(<your_mesh_object>)`
 # Extension
 Read more about the [NEEDLE_progressive extension](./NEEDLE_progressive/README.md)
 
+# Documentation
+Read more about Needle Progressive GLTF loading in the [Needle Engine documentation](https://docs.needle.tools/engine/gltf-progressive/)
 
 # Contact ✒️
 <b>[🌵 needle — tools for creators](https://needle.tools)</b> • 

@@ -140,7 +140,9 @@ function prepareLoaders() {
         dracoLoader = new DRACOLoader();
         dracoLoader[$dracoDecoderPath] = DEFAULT_DRACO_DECODER_LOCATION;
         dracoLoader.setDecoderPath(DEFAULT_DRACO_DECODER_LOCATION);
-        dracoLoader.setDecoderConfig({ type: 'js' });
+        // three r185+ auto-selects WASM (preferred) or JS based on platform support, and
+        // setDecoderConfig is deprecated (removed in r194). The gstatic decoder path hosts both
+        // decoders, so dropping the forced-JS config lets it use the faster WASM decoder.
         dracoLoader.preload();
     }
     if (!ktx2Loader) {

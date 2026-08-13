@@ -253,17 +253,13 @@ async function runPipeline(job, options) {
   const args = createPipelineArgs({ ...options, authToken: resolvedAuthToken });
   appendLog(job, "sidecar", `npx ${redactPipelineArgs(args).join(" ")}`);
 
-  const childEnv = { ...process.env };
-  if (isNeedleCloudAccessToken(childEnv.NEEDLE_CLOUD_TOKEN)) {
-    delete childEnv.NEEDLE_CLOUD_TOKEN;
-  }
-  if (resolvedAuthToken) {
-    childEnv.NEEDLE_CLOUD_TOKEN = resolvedAuthToken;
-  }
-
+  // The license JWT reaches the pipeline as `--auth-token` (see createPipelineArgs), which takes
+  // precedence over every env source. The pipeline reads NEEDLE_BUILD_PIPELINE_LICENSE_JWT /
+  // NEEDLE_LICENSE_JWT from the env and never NEEDLE_CLOUD_TOKEN — that name is the nc_* access
+  // token, a credential it cannot verify offline — so there is nothing to strip or substitute here.
   const child = spawn("npx", args, {
     cwd: job.workDir,
-    env: childEnv,
+    env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   job.child = child;

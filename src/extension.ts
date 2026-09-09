@@ -696,6 +696,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 }
             }
         } else {
+            // Invalidate requests waiting for a queue slot as well as active loads.
+            this.cacheGeneration++;
             this.lodInfos.clear();
 
             for (const [, entryRef] of this.lowresCache) {
@@ -737,6 +739,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         } else {
             // Promise — may be in-flight or already resolved.
             // Attach disposal to run after resolution.
+            this.disposedRequests.add(entry);
             entry.then(resource => {
                 if (resource) {
                     if (Array.isArray(resource)) {
@@ -841,10 +844,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     }
 
     private static readonly workers: Array<GLTFLoaderWorker> = [];
+    private static cacheGeneration = 0;
+    private static readonly disposedRequests = new WeakSet<Promise<unknown>>();
     private static _workersIndex = 0;
 
     private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number): Promise<T | null> {
 
+        const generation = this.cacheGeneration;
         const debugverbose = debug == "verbose";
 
         /** this key is used to lookup the LOD information */
@@ -925,6 +931,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 const KEY = lod_url + "_" + lodInfo.guid;
 
                 const slot = await this.queue.slot(lod_url);
+                if (generation !== this.cacheGeneration) return null;
 
                 // check if the requested file is currently being loaded or was previously loaded
                 const existing = this.cache.get(KEY);
@@ -963,6 +970,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                             console.error(`Error loading LOD ${level} from ${lod_url}\n`, err);
                             return null;
                         });
+                        if (generation !== this.cacheGeneration || this.disposedRequests.has(existing)) return null;
                         let resouceIsDisposed = false;
                         if (res == null) {
                             // if the resource is null the last loading result didnt succeed (maybe because the url doesnt exist)
@@ -1154,6 +1162,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 slot.use(request);
                 const res = await request;
 
+                // dispose() cleans up removed pending entries when they resolve. Do not
+                // return those resources or overwrite a newer request for this key.
+                if (generation !== this.cacheGeneration || this.cache.get(KEY) !== request) return null;
+
                 // Optimize cache entry: replace loading promise with lightweight reference.
                 // This releases closure variables captured during the loading function.
                 if (res != null) {
@@ -1183,6 +1195,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (debugverbose) console.log("Load texture from uri: " + lod_url);
                     const loader = new TextureLoader();
                     const tex = await loader.loadAsync(lod_url);
+                    if (generation !== this.cacheGeneration) {
+                        tex?.dispose();
+                        return null;
+                    }
                     if (tex) {
                         (tex as any).guid = lodInfo.guid;
                         tex.flipY = false;

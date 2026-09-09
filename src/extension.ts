@@ -959,6 +959,8 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 }
             }
         } else {
+            // Requests already waiting for a queue slot must not populate a new cache lifetime.
+            this.cacheGeneration++;
             this.lodInfos.clear();
 
             for (const [, entryRef] of this.lowresCache) {
@@ -1004,6 +1006,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         } else {
             // Promise — may be in-flight or already resolved.
             // Attach disposal to run after resolution.
+            this.disposedRequests.add(entry);
             entry.then(resource => {
                 if (resource) {
                     if (Array.isArray(resource)) {
@@ -1107,10 +1110,13 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
     }
 
     private static readonly workers: Array<GLTFLoaderWorker> = [];
+    private static cacheGeneration = 0;
+    private static readonly disposedRequests = new WeakSet<Promise<unknown>>();
     private static _workersIndex = 0;
 
     private static async getOrLoadLOD<T extends Texture | BufferGeometry>(current: T & ObjectThatMightHaveLODs, level: number, options?: { isCurrent?: () => boolean }): Promise<T | null> {
 
+        const generation = this.cacheGeneration;
         const debugverbose = debug == "verbose";
 
         /** this key is used to lookup the LOD information */
@@ -1192,6 +1198,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
                 // check if the requested file is currently being loaded or was previously loaded
                 const cached = await this.tryResolveLODCacheEntry(this.cache.get(KEY), KEY, lod_url, current, level, debugverbose);
+                if (generation !== this.cacheGeneration) return null;
                 if (cached.found) return cached.value as T;
 
                 if (options?.isCurrent?.() === false) {
@@ -1200,6 +1207,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 }
 
                 const slot = await this.queue.slot(lod_url);
+                if (generation !== this.cacheGeneration) return null;
                 if (options?.isCurrent?.() === false) {
                     if (debugverbose) console.log(`Skipping stale LOD ${level} request after queue: ${lod_url}`);
                     return null;
@@ -1207,7 +1215,17 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 // Another request can fill the cache while this one waits for a queue slot.
                 // Re-checking here avoids duplicate loads for heavily instanced assets.
                 const cachedAfterQueue = await this.tryResolveLODCacheEntry(this.cache.get(KEY), KEY, lod_url, current, level, debugverbose);
+                if (generation !== this.cacheGeneration) return null;
                 if (cachedAfterQueue.found) return cachedAfterQueue.value as T;
+
+                // Even a cache miss above yields a microtask. Another slot holder can
+                // start this same request before that continuation resumes.
+                const startedMeanwhile = this.cache.get(KEY);
+                if (startedMeanwhile !== undefined) {
+                    const cached = await this.tryResolveLODCacheEntry(startedMeanwhile, KEY, lod_url, current, level, debugverbose);
+                    if (generation !== this.cacheGeneration) return null;
+                    if (cached.found) return cached.value as T;
+                }
 
                 // #region loading
                 if (!slot.use) {
@@ -1369,6 +1387,10 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                 slot.use(request);
                 const res = await request;
 
+                // dispose() owns cleanup of removed pending entries. Do not return their
+                // disposed resources to callers or overwrite a newer request for this key.
+                if (generation !== this.cacheGeneration || this.cache.get(KEY) !== request) return null;
+
                 // Optimize cache entry: replace loading promise with lightweight reference.
                 // This releases closure variables captured during the loading function.
                 if (res != null) {
@@ -1402,7 +1424,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                     if (debugverbose) console.log("Load texture from uri: " + lod_url);
                     const loader = new TextureLoader();
                     const tex = await loader.loadAsync(lod_url);
-                    if (options?.isCurrent?.() === false) {
+                    if (generation !== this.cacheGeneration || options?.isCurrent?.() === false) {
                         tex?.dispose();
                         return null;
                     }
@@ -1466,6 +1488,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
             console.error(`Error loading LOD ${level} from ${lodUrl}\n`, err);
             return null;
         });
+        if (this.disposedRequests.has(existing)) return { found: true, value: null };
         let resourceIsDisposed = false;
         if (res == null) {
             // Failed loads stay cached as null so we don't retry the same missing resource forever.

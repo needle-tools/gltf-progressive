@@ -5,6 +5,7 @@ on:
       - 'release/rc'
       - 'release/next'
       - 'release/stable'
+      - 'release/3.4-beta'
 
 jobs:
   run-release-script:
@@ -47,6 +48,10 @@ jobs:
         if: startsWith(github.ref_name, 'release/stable')
         run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "stable" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
                 
+      - name: Publish to npm (3.4 beta branch)
+        if: github.ref_name == 'release/3.4-beta'
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "version-3.4" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+
       - name: Publish to npm (rc branch)
         if: startsWith(github.ref_name, 'release/rc')
         run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "rc" --version+tag --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"

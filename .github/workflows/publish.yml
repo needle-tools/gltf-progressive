@@ -6,6 +6,7 @@ on:
       - 'release/next'
       - 'release/rc'
       - 'release/stable'
+      - 'release/3.6'
       - 'release/latest'
 
 jobs:
@@ -52,6 +53,10 @@ jobs:
       - name: Publish to npm (rc branch)
         if: startsWith(github.ref_name, 'release/rc')
         run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "rc" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
+
+      - name: Publish to npm (3.6 branch)
+        if: github.ref_name == 'release/3.6'
+        run: npx --yes needle-publish-helper@next publish "./dist" --oidc --webhook "${{ secrets.DISCORD_WEBHOOK }}" --tag "version-3.6" --create-tag "release/" --llm-api-key "${{ secrets.LLM_API_KEY }}"
 
       - name: Publish to npm (stable branch)
         if: startsWith(github.ref_name, 'release/stable')

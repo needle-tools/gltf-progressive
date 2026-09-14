@@ -13,40 +13,30 @@ const defaultKTX2 = DEFAULT_KTX2_TRANSCODER_LOCATION;
 
 
 // #region Online check
-const _remoteDracoDecoderUrl = new URL(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js");
-// if (typeof window !== "undefined") {
-//     if (!window.navigator.onLine) {
-//         // check if the default values have been changed by the user. 
-//         // If they didnt change / the default paths are not reachable, fall back to local versions
-//         if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco)
-//             DEFAULT_DRACO_DECODER_LOCATION = "./include/draco/";
-//         if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2)
-//             DEFAULT_KTX2_TRANSCODER_LOCATION = "./include/ktx2/";
-//     }
-//     prepareLoaders();
-// }
-// Avoid cache busting - if we don't do this chrome will clear the fully cached file (potentially)
-_remoteDracoDecoderUrl.searchParams.append("range", "true");
-fetch(_remoteDracoDecoderUrl, {
-    method: "GET",
-    headers: {
-        "Range": "bytes=0-1"
-    }
-})
-    .catch(_ => {
-        console.debug(`Failed to fetch remote Draco decoder from ${DEFAULT_DRACO_DECODER_LOCATION} (offline: ${(typeof navigator !== "undefined") ? navigator.onLine : "unknown"})`);
-        // check if the default values have been changed by the user. 
-        // If they didnt change / the default paths are not reachable, fall back to local versions
-        if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco) {
-            setDracoDecoderLocation("./include/draco/");
-        }
-        if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2) {
-            setKTX2TranscoderLocation("./include/ktx2/");
+if (typeof window !== "undefined") {
+    const remoteDracoDecoderUrl = new URL(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js");
+    // Avoid cache busting. Otherwise Chrome can discard the fully cached decoder.
+    remoteDracoDecoderUrl.searchParams.append("range", "true");
+    fetch(remoteDracoDecoderUrl, {
+        method: "GET",
+        headers: {
+            "Range": "bytes=0-1"
         }
     })
-    .finally(() => {
-        prepareLoaders();
-    })
+        .catch(_ => {
+            console.debug(`Failed to fetch remote Draco decoder from ${DEFAULT_DRACO_DECODER_LOCATION} (offline: ${navigator.onLine})`);
+            // Keep user-defined locations. Only replace the defaults when they are unavailable.
+            if (DEFAULT_DRACO_DECODER_LOCATION === defaultDraco) {
+                setDracoDecoderLocation("./include/draco/");
+            }
+            if (DEFAULT_KTX2_TRANSCODER_LOCATION === defaultKTX2) {
+                setKTX2TranscoderLocation("./include/ktx2/");
+            }
+        })
+        .finally(() => {
+            prepareLoaders();
+        });
+}
 
 
 

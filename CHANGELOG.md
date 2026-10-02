@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-alpha.4] - 2026-10-02
+- Fix: Server-side rendering no longer checks browser-only decoder URLs during import.
+
 ## [4.0.0-alpha.3] - 2026-09-09
 - Fix: LOD loads completing after disposal no longer restore cleared caches or apply disposed resources to meshes and textures.
 - Fix: concurrent mesh LOD requests share the same download and geometry instead of starting duplicate loads.

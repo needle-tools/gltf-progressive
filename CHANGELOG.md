@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-alpha.5] - 2026-10-06
+- Fix: Progressive LOD loading starts during an immersive WebXR session when the window animation frame callback is paused.
+
 ## [4.0.0-alpha.4] - 2026-10-02
 - Fix: Server-side rendering no longer checks browser-only decoder URLs during import.
 

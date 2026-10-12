@@ -1098,7 +1098,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
         }
 
         function logDebugInfo(prefix: string, newCount: number) {
-            let { width, height } = getTextureDimensions(texture);
+            const { width, height } = getTextureDimensions(texture);
             const textureSize = width && height ? `${width}x${height}` : "N/A";
             let memorySize = "N/A";
             if (width && height) {

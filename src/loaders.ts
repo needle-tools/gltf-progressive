@@ -34,7 +34,7 @@ if (typeof window !== "undefined") {
             }
         })
         .finally(() => {
-            prepareLoaders();
+            if (preloadLoaders) prepareLoaders();
         });
 }
 
@@ -94,18 +94,29 @@ export function setKTX2TranscoderLocation(location: string) {
  * @returns The loaders/decoders.
  */
 export function createLoaders(renderer: WebGLRenderer | null) {
-    prepareLoaders();
+    preloadLoaders = true;
+    const loaders = prepareLoaders();
 
     if (renderer) {
-        ktx2Loader.detectSupport(renderer);
+        loaders.ktx2Loader.detectSupport(renderer);
     }
     else if (renderer !== null)
         console.warn("No renderer provided to detect ktx2 support - loading KTX2 textures might fail");
 
-    return { dracoLoader, ktx2Loader, meshoptDecoder }
+    return loaders;
+}
+
+/** Release the shared Draco and KTX2 workers when no engine context uses them. */
+export function disposeLoaders() {
+    preloadLoaders = false;
+    dracoLoader?.dispose();
+    ktx2Loader?.dispose();
+    dracoLoader = undefined;
+    ktx2Loader = undefined;
 }
 
 export function addDracoAndKTX2Loaders(loader: GLTFLoader) {
+    const { dracoLoader, ktx2Loader, meshoptDecoder } = prepareLoaders();
     if (!loader.dracoLoader)
         loader.setDRACOLoader(dracoLoader);
     if (!(loader as any).ktx2Loader)
@@ -120,9 +131,10 @@ export function addDracoAndKTX2Loaders(loader: GLTFLoader) {
 
 
 const $dracoDecoderPath = Symbol("dracoDecoderPath");
-let dracoLoader: DRACOLoader;
-let meshoptDecoder: typeof MeshoptDecoder;
-let ktx2Loader: KTX2Loader;
+let preloadLoaders = true;
+let dracoLoader: DRACOLoader | undefined;
+let meshoptDecoder: typeof MeshoptDecoder | undefined;
+let ktx2Loader: KTX2Loader | undefined;
 
 /** Used to create and load loaders */
 function prepareLoaders() {
@@ -143,6 +155,7 @@ function prepareLoaders() {
     if (!meshoptDecoder) {
         meshoptDecoder = MeshoptDecoder;
     }
+    return { dracoLoader, ktx2Loader, meshoptDecoder };
 }
 
 

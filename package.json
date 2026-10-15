@@ -74,7 +74,7 @@
     }
   },
   "peerDependencies": {
-    "three": ">= 0.183.0"
+    "three": "*"
   },
   "devDependencies": {
     "@needle-tools/engine": "^5.1.0-alpha.6",

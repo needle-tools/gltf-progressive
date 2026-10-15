@@ -1,4 +1,5 @@
-import { WebGLRenderer, Scene, Camera, Object3D, Mesh } from 'three';
+import type { ProgressiveRenderer } from '../renderer.js';
+import { Scene, Camera, Object3D, Mesh } from 'three';
 import { NEEDLE_ext_progressive_mesh } from '../extension.model.js';
 
 /**
@@ -6,10 +7,10 @@ import { NEEDLE_ext_progressive_mesh } from '../extension.model.js';
  */
 export interface NEEDLE_progressive_plugin {
     /** Called before the LOD level will be requested/updated for a object */
-    onBeforeUpdateLOD?(renderer: WebGLRenderer, scene: Scene, camera: Camera, object: Mesh): void;
+    onBeforeUpdateLOD?(renderer: ProgressiveRenderer, scene: Scene, camera: Camera, object: Mesh): void;
 
     /** Called after the LOD level has been requested */
-    onAfterUpdatedLOD?(renderer: WebGLRenderer, scene: Scene, camera: Camera, object: Mesh, level: { mesh_lod: number, texture_lod: number }): void;
+    onAfterUpdatedLOD?(renderer: ProgressiveRenderer, scene: Scene, camera: Camera, object: Mesh, level: { mesh_lod: number, texture_lod: number }): void;
 
     /** Called when a new mesh is registered */
     onRegisteredNewMesh?(mesh: Mesh, ext: NEEDLE_ext_progressive_mesh): void;

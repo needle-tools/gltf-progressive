@@ -1,4 +1,5 @@
-import { WebGLRenderer } from 'three';
+import type { ProgressiveRenderer } from './renderer.js';
+
 // @ts-ignore @types/three re-exports from meshoptimizer which may not resolve in all configs
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -93,7 +94,7 @@ export function setKTX2TranscoderLocation(location: string) {
  * @param renderer - Provide a renderer to detect KTX2 support.
  * @returns The loaders/decoders.
  */
-export function createLoaders(renderer: WebGLRenderer | null) {
+export function createLoaders(renderer: ProgressiveRenderer | null) {
     preloadLoaders = true;
     const loaders = prepareLoaders();
 

@@ -217,3 +217,7 @@ Read more about Needle Progressive GLTF loading in the [Needle Engine documentat
 [Twitter](https://twitter.com/NeedleTools) • 
 [Discord](https://discord.needle.tools) • 
 [Forum](https://forum.needle.tools)
+
+### Renderer types
+
+Progressive loading accepts both WebGLRenderer and initialized WebGPURenderer instances. The exported ProgressiveRenderer type is shared by loader setup, the LOD manager, and plugin callbacks. Initialize a WebGPU renderer before configuring its loaders. Run npm run test:types to verify both public renderer contracts.

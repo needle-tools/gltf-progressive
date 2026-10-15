@@ -48,6 +48,7 @@
     "test:compat:browser": "vitest --config vitest.compat.config.ts --run",
     "test:compat:three": "node tools/run-three-compat.mjs",
     "test:tsc": "tsc --noEmit",
+    "test:types": "tsc -p tests/types/tsconfig.json",
     "lint": "eslint --ext .ts src",
     "lint:fix": "eslint --ext .ts src --fix"
   },

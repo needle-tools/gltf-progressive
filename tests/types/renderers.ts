@@ -1,0 +1,13 @@
+import type { WebGLRenderer } from 'three';
+import type { WebGPURenderer } from 'three/webgpu';
+import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { createLoaders, useNeedleProgressive, LODsManager } from '../../src/index.js';
+declare const gpu: WebGPURenderer;
+declare const gl: WebGLRenderer;
+declare const loader: GLTFLoader;
+createLoaders(gpu);
+useNeedleProgressive(loader, gpu);
+LODsManager.get(gpu);
+createLoaders(gl);
+useNeedleProgressive(loader, gl);
+LODsManager.get(gl);

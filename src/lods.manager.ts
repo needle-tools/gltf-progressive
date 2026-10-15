@@ -1,5 +1,6 @@
+import type { ProgressiveRenderer } from './renderer.js';
 import * as THREE from "three";
-import { Box3, BufferGeometry, Camera, Color, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferGeometry, Camera, Color, Material, Matrix4, Mesh, Object3D, PerspectiveCamera, Scene, SkinnedMesh, Sphere, Texture, Vector3 } from "three";
 import { NEEDLE_progressive } from "./extension.js";
 import { createLoaders } from "./loaders.js"
 import { getParam, isDevelopmentServer, isMobileDevice } from "./utils.internal.js"
@@ -330,7 +331,7 @@ export class LODsManager {
      * @param renderer The renderer to get the LODsManager for.
      * @returns The LODsManager instance.
      */
-    static get(renderer: WebGLRenderer, context?: LODManagerContext): LODsManager {
+    static get(renderer: ProgressiveRenderer, context?: LODManagerContext): LODsManager {
         if (renderer[$lodsManager]) {
             console.debug("[gltf-progressive] LODsManager already exists for this renderer");
             return renderer[$lodsManager] as LODsManager;
@@ -344,7 +345,7 @@ export class LODsManager {
     }
 
 
-    readonly renderer: WebGLRenderer;
+    readonly renderer: ProgressiveRenderer;
     private readonly context: LODManagerContext;
     private readonly projectionScreenMatrix = new Matrix4();
 
@@ -500,7 +501,7 @@ export class LODsManager {
 
     // readonly plugins: NEEDLE_progressive_plugin[] = [];
 
-    private constructor(renderer: WebGLRenderer, context: LODManagerContext) {
+    private constructor(renderer: ProgressiveRenderer, context: LODManagerContext) {
         this.renderer = renderer;
         this.context = { ...context };
 

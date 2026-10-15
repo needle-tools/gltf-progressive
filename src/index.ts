@@ -1,3 +1,5 @@
+export type { ProgressiveRenderer } from './renderer.js';
+import type { ProgressiveRenderer } from './renderer.js';
 export { version as VERSION } from "./version.js"
 
 export * from "./extension.js"
@@ -7,7 +9,7 @@ export { setDracoDecoderLocation, setKTX2TranscoderLocation, createLoaders, disp
 export { getRaycastMesh, registerRaycastMesh, useRaycastMeshes } from "./utils.js"
 
 
-import { WebGLRenderer } from "three";
+
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { addDracoAndKTX2Loaders, configureLoader, createLoaders, SmartLoadingHints } from "./loaders.js";
 import { NEEDLE_progressive } from "./extension.js";
@@ -25,8 +27,8 @@ declare type UseNeedleGLTFProgressiveOptions = {
 }
 
 /** @deprecated Use `useNeedleProgressive(loader, renderer)` - this method will be removed in gltf-progressive 4 */
-export function useNeedleProgressive(url: string, renderer: WebGLRenderer, loader: GLTFLoader, opts?: UseNeedleGLTFProgressiveOptions);
-export function useNeedleProgressive(loader: GLTFLoader, renderer: WebGLRenderer, opts?: UseNeedleGLTFProgressiveOptions);
+export function useNeedleProgressive(url: string, renderer: ProgressiveRenderer, loader: GLTFLoader, opts?: UseNeedleGLTFProgressiveOptions);
+export function useNeedleProgressive(loader: GLTFLoader, renderer: ProgressiveRenderer, opts?: UseNeedleGLTFProgressiveOptions);
 /** Use this function to enable progressive loading of gltf models.
  * @param url The url of the gltf model.
  * @param renderer The renderer of the scene.
@@ -52,7 +54,7 @@ export function useNeedleProgressive(loader: GLTFLoader, renderer: WebGLRenderer
  */
 export function useNeedleProgressive(...args: any[]) {
     let url: string;
-    let renderer: WebGLRenderer;
+    let renderer: ProgressiveRenderer;
     let loader: GLTFLoader;
     let opts: UseNeedleGLTFProgressiveOptions;
     switch (args.length) {

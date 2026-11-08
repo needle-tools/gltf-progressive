@@ -13,7 +13,23 @@ import { useNeedleProgressive } from "@needle-tools/gltf-progressive";
 useNeedleProgressive(gltf_loader, webgl_renderer)
 ```
 
+## Automatic decoder preloading
+
+In browsers, Draco and KTX2 decoders preload when the package is imported. To opt
+out of this startup optimization, set `globalThis.NEEDLE_PRELOAD_DECODERS = false`
+**before importing** the package (or Needle Engine). For example:
+
+```js
+globalThis.NEEDLE_PRELOAD_DECODERS = false;
+const progressive = await import('@needle-tools/gltf-progressive');
+```
+
+This disables the automatic decoder availability probe and preload. Creating loaders
+still initializes the decoders normally. Changing the flag after import does not
+cancel downloads that have already started. Leaving it unset preserves early preloading.
+
 ## Features
+
 - [**Single line integration**](#usage) for any three.js project
 - Mesh & Texture LOD support
   - LOD levels are loaded lazily on demand based on **mesh screen density** instead of pure distance ensuring consistent and predictable quality

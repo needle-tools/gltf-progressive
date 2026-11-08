@@ -12,9 +12,13 @@ let DEFAULT_KTX2_TRANSCODER_LOCATION = "https://cdn.needle.tools/static/three/0.
 const defaultDraco = DEFAULT_DRACO_DECODER_LOCATION;
 const defaultKTX2 = DEFAULT_KTX2_TRANSCODER_LOCATION;
 
+declare global {
+    /** Set false before importing the package to disable automatic decoder preloading. */
+    var NEEDLE_PRELOAD_DECODERS: boolean | undefined;
+}
 
 // #region Online check
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && globalThis.NEEDLE_PRELOAD_DECODERS !== false) {
     const remoteDracoDecoderUrl = new URL(DEFAULT_DRACO_DECODER_LOCATION + "draco_decoder.js");
     // Avoid cache busting. Otherwise Chrome can discard the fully cached decoder.
     remoteDracoDecoderUrl.searchParams.append("range", "true");

@@ -704,7 +704,7 @@ export class LODsManager {
         if (renderer.isWebGPURenderer === true) {
             const renderLists = renderer._renderLists;
             if (!renderLists) return null;
-            renderList = renderLists.get(scene, camera);
+            renderList = renderLists.get(scene, camera, renderer.lighting);
         }
         else if (renderer.isWebGLRenderer === true) {
             const renderLists = renderer.renderLists;

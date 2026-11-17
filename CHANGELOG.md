@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [4.0.0-alpha.9] - 2026-11-17
 - Pass renderer lighting when retrieving unified render lists on Three r186.
+- Reuse the active renderer's compressed-texture support in progressive workers without creating a legacy WebGL renderer.
 
 ## [4.0.0-alpha.6] - 2026-10-12
 - Add: `disposeLoaders()` releases shared Draco and KTX2 decoder workers. Loaders are recreated when another scene needs them.

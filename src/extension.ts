@@ -1244,6 +1244,7 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
                         if (res.textures.length > 0) {
                             // const textures = new Array<Texture>();
                             for (const entry of res.textures) {
+                                if (!isTextureRequest || entry.extensions[EXTENSION_NAME]?.guid !== ext.guid) continue;
                                 let texture = entry.texture;
                                 NEEDLE_progressive.assignLODInformation(LOD.url, texture, LODKEY, level, undefined);
                                 if (current instanceof Texture) {
@@ -1262,11 +1263,12 @@ export class NEEDLE_progressive implements GLTFLoaderPlugin {
 
                             const geometries = new Array<BufferGeometry>();
                             for (const entry of res.geometries) {
+                                if (isTextureRequest || entry.extensions[EXTENSION_NAME]?.guid !== ext.guid) continue;
                                 const newGeo = entry.geometry;
                                 NEEDLE_progressive.assignLODInformation(LOD.url, newGeo, LODKEY, level, entry.primitiveIndex);
                                 geometries.push(newGeo);
                             }
-                            return resolve(geometries);
+                            return resolve(geometries.length ? geometries : null);
                         }
                         return resolve(null);
                     }

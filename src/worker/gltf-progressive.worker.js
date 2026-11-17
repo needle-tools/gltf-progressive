@@ -71,8 +71,14 @@ async function loadGLTF(req) {
     loader.setKTX2Loader(ktx2Loader);
 
 
-    loader.load(req.url, gltf => {
+    loader.load(req.url, async gltf => {
         if(debug) console.log("Loaded", req.url, gltf);
+
+        // LOD files can contain resources that are not referenced by a scene node.
+        await Promise.all([
+            ...(gltf.parser.json.textures ?? []).map((_, index) => gltf.parser.getDependency("texture", index)),
+            ...(gltf.parser.json.meshes ?? []).map((_, index) => gltf.parser.getDependency("mesh", index)),
+        ]);
 
         /** @type {GLTFLoaderWorker_Message & { type: "loaded-gltf"}} */
         const data = {

@@ -1,4 +1,5 @@
-import { Box3, BufferAttribute, BufferGeometry, type ColorSpace, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, Matrix3, PixelFormat, Sphere, Texture, Vector3, WebGLRenderer } from "three";
+import { Box3, BufferAttribute, BufferGeometry, type ColorSpace, CompressedPixelFormat, CompressedTexture, CompressedTextureMipmap, InterleavedBuffer, InterleavedBufferAttribute, Mapping, Matrix3, PixelFormat, Sphere, Texture, Vector3 } from "three";
+import type { ProgressiveRenderer } from "../renderer.js";
 import { createLoaders, GET_LOADER_LOCATION_CONFIG } from "../loaders.js";
 import type { KTX2LoaderWorkerConfig } from "three/examples/jsm/loaders/KTX2Loader.js";
 import { getSourceData, getTextureDimensions, isMobileDevice } from "../utils.internal.js";
@@ -64,24 +65,16 @@ class GLTFLoaderWorker {
 
 
     private _running: Array<{ url: string, resolve: (value: WorkerLoadResult) => void }> = [];
-    private _webglRenderer: Promise<WebGLRenderer> | null = null;
-
-    async load(url: string | URL, opts?: { renderer?: WebGLRenderer }): Promise<WorkerLoadResult> {
+    async load(url: string | URL, opts?: { renderer?: ProgressiveRenderer }): Promise<WorkerLoadResult> {
         const configs = GET_LOADER_LOCATION_CONFIG();
 
-        // Make sure we have a webgl renderer for the KTX transcoder feature detection
-        let renderer = opts?.renderer;
-        if (!renderer) {
-            this._webglRenderer ??= (async () => {
-                const { WebGLRenderer } = await import("three");
-                return new WebGLRenderer();
-            })();
-            renderer = await this._webglRenderer;
-        }
-
-        const loaders = createLoaders(renderer);
+        // Reuse the active renderer's supported formats instead of creating a second context.
+        const loaders = createLoaders(opts?.renderer ?? null);
         const ktx2Loader = loaders.ktx2Loader;
         const ktx2LoaderConfig = ktx2Loader.workerConfig;
+        if (!ktx2LoaderConfig) {
+            throw new Error("Initialize progressive loaders with createLoaders(renderer), or pass a renderer to worker.load().");
+        }
 
         if (url instanceof URL) {
             url = url.toString();

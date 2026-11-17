@@ -284,9 +284,10 @@ declare type LODChangedEventListener = (args: {
  * @example Adding a LODsManager to a Three.js scene:
  * ```ts
  * import { LODsManager } from "@needle-tools/gltf-progressive";
- * import { WebGLRenderer, Scene, Camera, Mesh } from "three";
+ * import { WebGPURenderer } from "three/webgpu";
  * 
- * const renderer = new WebGLRenderer();
+ * const renderer = new WebGPURenderer();
+ * await renderer.init();
  * const lodsManager = LODsManager.get(renderer);
  * lodsManager.enable();
  * ```

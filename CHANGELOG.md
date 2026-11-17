@@ -4,6 +4,9 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-alpha.9] - 2026-11-17
+- Pass renderer lighting when retrieving unified render lists on Three r186.
+
 ## [4.0.0-alpha.6] - 2026-10-12
 - Add: `disposeLoaders()` releases shared Draco and KTX2 decoder workers. Loaders are recreated when another scene needs them.
 
